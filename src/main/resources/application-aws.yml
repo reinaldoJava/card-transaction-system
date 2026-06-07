@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: card-transaction-system
+  cloud:
+    function:
+      definition: tokenExchange;loginFunction;processTransactionFunction;validateTransactionFunction;validateBusinessRulesFunction;compensationFunction;fraudAnalysisFunction;updateStatusFunction
+
+aws:
+  region: sa-east-1
+  dynamodb:
+    region: sa-east-1
+
+auth:
+  lambda:
+    function-name: ${AUTH_LAMBDA_FUNCTION_NAME:token-exchange-lambda}
+  hardcoded-opaque-token: ${AUTH_OPAQUE_TOKEN:550e8400-e29b-41d4-a716-446655440000}
+
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-change-in-prod!!}
+  expiration-hours: 24
+
+bedrock:
+  fraud-agent:
+    model-id: ${BEDROCK_MODEL_ID:us.anthropic.claude-haiku-4-5-20251001-v1:0}
+
+fraud:
+  agent:
+    threshold: ${FRAUD_THRESHOLD:80}
+
+fraud-analysis:
+  provider: BEDROCK
+
+step-functions:
+  state-machine-arn: ${STEP_FUNCTIONS_STATE_MACHINE_ARN}
+
+use-step-functions: true
+
+logging:
+  level:
+    root: INFO
+    com.empresa.cardtransactionsystem: DEBUG
+    software.amazon.awssdk: WARN
