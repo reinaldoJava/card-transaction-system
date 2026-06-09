@@ -10,6 +10,7 @@ import com.empresa.cardtransactionsystem.domain.ports.output.FraudAnalysisPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionHistoryPort;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
+import org.springframework.context.annotation.Profile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.document.Document;
@@ -35,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
+@Profile("fraud-bedrock")
 public class BedrockFraudAnalysisAdapter implements FraudAnalysisPort {
 
     private static final Pattern SCORE_PATTERN = Pattern.compile("\"fraud_score\"\\s*:\\s*(\\d+)");

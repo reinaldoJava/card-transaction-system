@@ -2,9 +2,21 @@ resource "aws_dynamodb_table" "card_transactions" {
   name           = "card-transactions"
   billing_mode   = var.dynamodb_billing_mode
   hash_key       = "uuidTransaction"
+
   attribute {
     name = "uuidTransaction"
     type = "S"
+  }
+
+  attribute {
+    name = "cardToken"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "cardToken-index"
+    hash_key        = "cardToken"
+    projection_type = "ALL"
   }
 }
 

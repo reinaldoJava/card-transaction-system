@@ -1,6 +1,7 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.rest;
 
 import com.empresa.cardtransactionsystem.application.orchestrator.TransactionOrchestrator;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ class ProcessControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean TransactionOrchestrator orchestrator;
+    @MockitoBean Tracer tracer;
 
     @Test
     @DisplayName("should return 202 Accepted with correlationId when request is valid")

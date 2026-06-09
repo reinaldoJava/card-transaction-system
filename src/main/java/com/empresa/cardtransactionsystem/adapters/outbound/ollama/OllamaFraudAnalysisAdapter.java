@@ -3,6 +3,7 @@ package com.empresa.cardtransactionsystem.adapters.outbound.ollama;
 import com.empresa.cardtransactionsystem.domain.model.FraudAnalysisRequest;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.ports.output.FraudAnalysisPort;
+import org.springframework.context.annotation.Profile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -11,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
+@Profile("fraud-ollama")
 public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
 
     private static final Pattern SCORE_PATTERN = Pattern.compile("(\\d+)");

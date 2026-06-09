@@ -83,6 +83,6 @@ class FraudAnalysisServiceTest {
     private SagaPayload payload() {
         return new SagaPayload("TXN-001", UUID.randomUUID(), TOKEN,
                 new BigDecimal("500.00"), 3, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
     }
 }

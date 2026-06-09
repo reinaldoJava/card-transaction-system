@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: card-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: card-system
+data:
+  SPRING_PROFILES_ACTIVE: "local-rich,env-local"
+  REDIS_HOST: "redis-service"
+  DB_URL: "jdbc:postgresql://postgres-service:5432/cards"
+  KAFKA_BROKERS: "redpanda-service:9092"
+  TEMPORAL_TARGET: "temporal-service:7233"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector-service:4317"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: card-system
+type: Opaque
+data:
+  # Valores em base64 (exemplo: 'postgres' e 'dev-secret...')
+  DB_PASSWORD: cG9zdGdyZXM=
+  JWT_SECRET: ZGV2LXNlY3JldC1rZXktMzItY2hhcnMtbWluaW11bS1uZWVkZWQ=

@@ -138,15 +138,19 @@ polling porém sai do free tier de Step Functions (custo pequeno desde a 1ª req
 
 ## 4. Backlog priorizado
 
-| # | Item | Tag | Esforço |
-|---|------|-----|---------|
-| 1 | Consolidar 3 orchestrators + `SagaStarterPort` | DESIGN | M |
-| 2 | Assíncrono (202 + GET status); remover polling; manter SFN Standard | CUSTO | M |
+> Itens marcados com ✅ foram implementados.
+
+| # | Item | Tag | Status |
+|---|------|-----|--------|
+| 1 | Consolidar 3 orchestrators + `SagaStarterPort` | DESIGN | ✅ |
+| 2 | Assíncrono (202 + GET status); remover polling; manter SFN Standard | CUSTO | ✅ |
 | 3 | Tirar PAN/CVV do tráfego; `include_execution_data=false`; remover CvvHash | SEGURANÇA | M |
-| 4 | arm64 + SnapStart | CUSTO | S |
-| 5 | JWT no endpoint + CORS restrito + segredos no Parameter Store | SEGURANÇA | M |
+| 4 | arm64 + SnapStart | CUSTO | ✅ |
+| 5 | JWT no endpoint + CORS restrito + segredos no Parameter Store | SEGURANÇA | ✅ |
 | 6 | Remover `@Service` do domínio | DESIGN | S |
 | 7 | ObjectMapper como bean; remover RestTemplate morto | DESIGN | S |
 | 8 | Idempotência também para REJECTED | DESIGN | S |
-| 9 | Remover `allow-bean-definition-overriding` após item 1 | DESIGN | S |
-```
+| 9 | Remover `allow-bean-definition-overriding` após item 1 | DESIGN | ✅ |
+| 10 | OpenSearch → PostgresAuditAdapter; profile groups corretos | DESIGN | ✅ |
+| 11 | Callback/webhook por HMAC-SHA256 (`callbackUrl` em `SagaPayload`) | DESIGN | ✅ |
+| 12 | `getStatusFunction` Lambda + Terraform | DESIGN | ✅ |

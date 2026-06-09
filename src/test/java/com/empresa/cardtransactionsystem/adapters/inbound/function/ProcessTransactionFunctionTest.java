@@ -33,7 +33,7 @@ class ProcessTransactionFunctionTest {
         var request = new CardTransactionRequest(
                 "TXN-001", uuid,
                 new CardDataRequest("4111111111111111", "123", "John Doe", "VISA"),
-                new BigDecimal("500.00"), 3
+                new BigDecimal("500.00"), 3, null
         );
         when(orchestrator.orchestrate(request)).thenReturn(uuid);
         UUID result = function.apply(request);

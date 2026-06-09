@@ -50,6 +50,6 @@ class ValidateCardTransactionUseCaseTest {
 
     private SagaPayload payload(TransactionStatus status) {
         return new SagaPayload("TXN-001", uuid, new CardToken("tok"),
-                new BigDecimal("500.00"), 1, Brand.VISA, status, LocalDateTime.now(), null);
+                new BigDecimal("500.00"), 1, Brand.VISA, status, LocalDateTime.now(), null, null);
     }
 }

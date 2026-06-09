@@ -217,7 +217,7 @@ Cuidados: não colocar Lambda em VPC com NAT Gateway; manter log em `INFO`; apli
 ./mvnw clean package -DskipTests
 ```
 
-**Checklist antes de commitar:** `./mvnw clean test` verde · domínio sem anotações Spring · adapters não vazam para o domínio · sem comentários desnecessários (Clean Code, ver [`CLAUDE.md`](./CLAUDE.md)).
+**Checklist antes de commitar:** `./mvnw clean test` verde · domínio sem anotações Spring · adapters não vazam para o domínio · sem comentários desnecessários (Clean Code, ver [`CLAUDE.md`](AGENTS.md)).
 
 ---
 

@@ -10,4 +10,5 @@ public interface TransactionRepositoryPort {
     void save(SagaPayload payload);
     void updateStatus(UUID correlationId, TransactionStatus status);
     Optional<TransactionStatus> findStatus(UUID correlationId);
+    Optional<SagaPayload> findById(UUID correlationId);
 }

@@ -4,6 +4,7 @@ import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import io.micrometer.observation.annotation.Observed;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
+@Profile("ledger-dynamodb")
 public class DynamoDbTransactionAdapter implements TransactionRepositoryPort {
 
     private final DynamoDbTable<CardTransactionDdbEntity> transactionTable;
@@ -45,10 +47,19 @@ public class DynamoDbTransactionAdapter implements TransactionRepositoryPort {
     @Override
     @Observed(name = "db.transaction.find_status", contextualName = "dynamodb.get-transaction-status")
     public Optional<TransactionStatus> findStatus(UUID correlationId) {
-        CardTransactionDdbEntity entity = transactionTable.getItem(
-                r -> r.key(k -> k.partitionValue(correlationId.toString()))
-        );
-        return Optional.ofNullable(entity)
+        return findEntity(correlationId)
                 .map(e -> TransactionStatus.valueOf(e.getStatus()));
+    }
+
+    @Override
+    @Observed(name = "db.transaction.find_by_id", contextualName = "dynamodb.get-transaction")
+    public Optional<SagaPayload> findById(UUID correlationId) {
+        return findEntity(correlationId).map(CardTransactionDdbEntity::toDomain);
+    }
+
+    private Optional<CardTransactionDdbEntity> findEntity(UUID correlationId) {
+        return Optional.ofNullable(
+                transactionTable.getItem(r -> r.key(k -> k.partitionValue(correlationId.toString())))
+        );
     }
 }

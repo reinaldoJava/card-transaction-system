@@ -2,6 +2,7 @@ package com.empresa.cardtransactionsystem.adapters.inbound.rest;
 
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,7 @@ class StatusControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean GetTransactionStatusUseCase getTransactionStatusUseCase;
+    @MockitoBean Tracer tracer;
 
     @Test
     @DisplayName("should return 200 with APPROVED status when transaction exists")

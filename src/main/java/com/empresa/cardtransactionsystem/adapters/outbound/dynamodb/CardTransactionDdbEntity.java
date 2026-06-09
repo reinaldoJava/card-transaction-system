@@ -6,6 +6,7 @@ import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
+import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbSecondaryPartitionKey;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class CardTransactionDdbEntity {
     private String brand;
     private String status;
     private String createdAt;
+    private String callbackUrl;
 
     @DynamoDbPartitionKey
     public String getUuidTransaction() { return uuidTransaction; }
@@ -30,6 +32,7 @@ public class CardTransactionDdbEntity {
     public String getTransactionId() { return transactionId; }
     public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
 
+    @DynamoDbSecondaryPartitionKey(indexNames = {"cardToken-index"})
     public String getCardToken() { return cardToken; }
     public void setCardToken(String cardToken) { this.cardToken = cardToken; }
 
@@ -48,6 +51,9 @@ public class CardTransactionDdbEntity {
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 
+    public String getCallbackUrl() { return callbackUrl; }
+    public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
+
     public static CardTransactionDdbEntity from(SagaPayload payload) {
         CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
         entity.setUuidTransaction(payload.correlationId().toString());
@@ -58,6 +64,7 @@ public class CardTransactionDdbEntity {
         entity.setBrand(payload.brand().name());
         entity.setStatus(payload.status().name());
         entity.setCreatedAt(payload.createdAt().format(DateTimeFormatter.ISO_DATE_TIME));
+        entity.setCallbackUrl(payload.callbackUrl());
         return entity;
     }
 
@@ -67,11 +74,4 @@ public class CardTransactionDdbEntity {
                 UUID.fromString(uuidTransaction),
                 new CardToken(cardToken),
                 amount,
-                installments,
-                Brand.valueOf(brand),
-                TransactionStatus.valueOf(status),
-                LocalDateTime.parse(createdAt, DateTimeFormatter.ISO_DATE_TIME),
-                null
-        );
-    }
-}
+       

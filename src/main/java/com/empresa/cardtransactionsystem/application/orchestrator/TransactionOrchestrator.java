@@ -6,6 +6,8 @@ import com.empresa.cardtransactionsystem.adapters.outbound.observability.Transac
 import com.empresa.cardtransactionsystem.application.usecase.IdempotencyService;
 import com.empresa.cardtransactionsystem.domain.model.*;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
+import com.empresa.cardtransactionsystem.domain.ports.output.CallbackNotifierPort;
+import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublisherPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.SagaStarterPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import com.empresa.cardtransactionsystem.domain.service.CardValidationService;
@@ -23,6 +25,8 @@ public class TransactionOrchestrator {
     private final CardValidationService cardValidationService;
     private final IdempotencyService idempotencyService;
     private final CachePort cachePort;
+    private final DomainEventPublisherPort eventPublisher;
+    private final CallbackNotifierPort callbackNotifier;
     private final TraceparentExtractor traceparentExtractor;
     private final TransactionMetrics metrics;
     private final int fraudScoreThreshold;
@@ -33,6 +37,8 @@ public class TransactionOrchestrator {
             CardValidationService cardValidationService,
             IdempotencyService idempotencyService,
             CachePort cachePort,
+            DomainEventPublisherPort eventPublisher,
+            CallbackNotifierPort callbackNotifier,
             TraceparentExtractor traceparentExtractor,
             TransactionMetrics metrics,
             @Value("${fraud.agent.threshold:80}") int fraudScoreThreshold) {
@@ -41,6 +47,8 @@ public class TransactionOrchestrator {
         this.cardValidationService = cardValidationService;
         this.idempotencyService = idempotencyService;
         this.cachePort = cachePort;
+        this.eventPublisher = eventPublisher;
+        this.callbackNotifier = callbackNotifier;
         this.traceparentExtractor = traceparentExtractor;
         this.metrics = metrics;
         this.fraudScoreThreshold = fraudScoreThreshold;
@@ -55,6 +63,7 @@ public class TransactionOrchestrator {
         CardData cardData = buildCardData(request);
         CardToken cardToken = cardValidationService.tokenize(cardData);
         Brand brand = Brand.valueOf(request.cardDataRequest().brand());
+        String callbackUrl = request.callbackUrl();
 
         Optional<FraudScore> highFraudScore = cachePort.getFraudScore(cardToken)
                 .filter(score -> score.exceedsThreshold(fraudScoreThreshold));
@@ -62,22 +71,25 @@ public class TransactionOrchestrator {
         if (highFraudScore.isPresent()) {
             SagaPayload rejected = SagaPayload.rejected(
                     request.transactionId(), request.uuidTransaction(),
-                    cardToken, request.amount(), request.installments(), brand);
+                    cardToken, request.amount(), request.installments(), brand, callbackUrl);
             transactionRepository.save(rejected);
-            idempotencyService.store(request.transactionId(),
-                    TransactionResult.rejected(request.uuidTransaction(),
-                            "High fraud score in cache: " + highFraudScore.get().score()));
+            eventPublisher.publish(rejected);
+            TransactionResult result = TransactionResult.rejected(request.uuidTransaction(),
+                    "High fraud score in cache: " + highFraudScore.get().score());
+            idempotencyService.store(request.transactionId(), result);
+            callbackNotifier.notify(rejected, result);
             metrics.recordCacheRejected();
             return rejected.correlationId();
         }
 
         SagaPayload payload = SagaPayload.pending(
                 request.transactionId(), request.uuidTransaction(),
-                cardToken, request.amount(), request.installments(), brand)
+                cardToken, request.amount(), request.installments(), brand, callbackUrl)
                 .withTraceparent(traceparentExtractor.extract());
 
         transactionRepository.save(payload);
         sagaStarterPort.start(payload);
+        eventPublisher.publish(payload);
         metrics.recordSubmitted();
         return payload.correlationId();
     }

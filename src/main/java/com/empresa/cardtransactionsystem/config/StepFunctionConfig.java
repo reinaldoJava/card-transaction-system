@@ -12,12 +12,13 @@ import software.amazon.awssdk.services.sfn.SfnClient;
 import java.net.URI;
 
 @Configuration
+@Profile("saga-stepfunctions")
 public class StepFunctionConfig {
 
     @Bean
-    @Profile("local")
+    @Profile("env-local")
     public SfnClient stepFunctionsClient(
-            @Value("${aws.dynamodb.endpoint:http://localhost:4566}") String endpoint) {
+            @Value("${cloud.aws.endpoint.uri:http://localhost:4566}") String endpoint) {
         return SfnClient.builder()
                 .endpointOverride(URI.create(endpoint))
                 .region(Region.US_EAST_1)
@@ -27,11 +28,8 @@ public class StepFunctionConfig {
     }
 
     @Bean
-    @Profile("!local")
-    public SfnClient stepFunctionsClientAws(
-            @Value("${aws.region:sa-east-1}") String region) {
-        return SfnClient.builder()
-                .region(Region.of(region))
-                .build();
+    @Profile("env-aws")
+    public SfnClient stepFunctionsClientAws() {
+        return SfnClient.builder().build();
     }
 }

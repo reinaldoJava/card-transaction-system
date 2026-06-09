@@ -8,5 +8,6 @@ public record FraudResult(
         String transactionId,
         UUID uuidTransaction,
         FraudScore fraudScore,
-        String traceparent
+        String traceparent,
+        String callbackUrl
 ) {}

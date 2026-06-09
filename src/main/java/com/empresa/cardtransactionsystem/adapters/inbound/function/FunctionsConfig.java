@@ -3,6 +3,7 @@ package com.empresa.cardtransactionsystem.adapters.inbound.function;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardTransactionRequest;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.JwtResponse;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.LoginRequest;
+import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.TransactionStatusResponse;
 import com.empresa.cardtransactionsystem.adapters.outbound.lambda.JwtGenerator;
 import com.empresa.cardtransactionsystem.adapters.outbound.lambda.dto.TokenExchangeRequest;
 import com.empresa.cardtransactionsystem.adapters.outbound.lambda.dto.TokenExchangeResponse;
@@ -18,9 +19,12 @@ import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.CompensationUseCase;
+import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.LoginUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateBusinessRulesUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateTransactionUseCase;
+import com.empresa.cardtransactionsystem.domain.ports.output.CallbackNotifierPort;
+import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublisherPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -44,6 +48,15 @@ public class FunctionsConfig {
     public FunctionsConfig(OpenTelemetry openTelemetry, MeterRegistry meterRegistry) {
         this.openTelemetry = openTelemetry;
         this.meterRegistry = meterRegistry;
+    }
+
+    @Bean
+    public Function<UUID, TransactionStatusResponse> getStatusFunction(
+            GetTransactionStatusUseCase getTransactionStatusUseCase) {
+        return wrapFn(correlationId ->
+                getTransactionStatusUseCase.getStatus(correlationId)
+                        .map(status -> new TransactionStatusResponse(correlationId, status, null))
+                        .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + correlationId)));
     }
 
     @Bean
@@ -94,8 +107,10 @@ public class FunctionsConfig {
     @Bean
     public Consumer<FraudResult> updateStatusFunction(
             TransactionRepositoryPort repositoryPort,
+            DomainEventPublisherPort eventPublisher,
             CompensationUseCase compensationUseCase,
             IdempotencyService idempotencyService,
+            CallbackNotifierPort callbackNotifier,
             TraceparentExtractor traceparentExtractor,
             TransactionMetrics metrics,
             @Value("${fraud.agent.threshold:80}") int threshold) {
@@ -103,13 +118,17 @@ public class FunctionsConfig {
             try (Scope ignored = traceparentExtractor.restore(result.traceparent())) {
                 if (result.fraudScore().exceedsThreshold(threshold)) {
                     compensationUseCase.compensate(result.uuidTransaction());
-                    idempotencyService.store(result.transactionId(),
-                            TransactionResult.rejected(result.uuidTransaction(), "High fraud score"));
+                    TransactionResult txResult = TransactionResult.rejected(result.uuidTransaction(), "High fraud score");
+                    idempotencyService.store(result.transactionId(), txResult);
+                    SagaPayload finalPayload = publishFinalEvent(repositoryPort, eventPublisher, result.uuidTransaction(), result.traceparent());
+                    if (finalPayload != null) callbackNotifier.notify(finalPayload, txResult);
                     metrics.recordFraudRejected();
                 } else {
                     repositoryPort.updateStatus(result.uuidTransaction(), TransactionStatus.APPROVED);
-                    idempotencyService.store(result.transactionId(),
-                            TransactionResult.approved(result.uuidTransaction()));
+                    TransactionResult txResult = TransactionResult.approved(result.uuidTransaction());
+                    idempotencyService.store(result.transactionId(), txResult);
+                    SagaPayload finalPayload = publishFinalEvent(repositoryPort, eventPublisher, result.uuidTransaction(), result.traceparent());
+                    if (finalPayload != null) callbackNotifier.notify(finalPayload, txResult);
                     metrics.recordApproved();
                 }
             }
@@ -136,6 +155,15 @@ public class FunctionsConfig {
                 validateTransactionUseCase.validate(payload);
             }
         });
+    }
+
+    private SagaPayload publishFinalEvent(TransactionRepositoryPort repositoryPort,
+                                          DomainEventPublisherPort eventPublisher,
+                                          UUID correlationId, String traceparent) {
+        return repositoryPort.findById(correlationId)
+                .map(p -> p.withTraceparent(traceparent))
+                .map(p -> { eventPublisher.publish(p); return p; })
+                .orElse(null);
     }
 
     private <A, B> Function<A, B> wrapFn(Function<A, B> fn) {

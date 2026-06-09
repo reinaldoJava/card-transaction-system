@@ -28,5 +28,7 @@ public record CardTransactionRequest(
 
         @Min(value = 1, message = "Installments must be at least 1")
         @Max(value = 24, message = "Installments cannot exceed 24")
-        int installments
+        int installments,
+
+        String callbackUrl
 ) {}

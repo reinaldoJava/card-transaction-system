@@ -7,10 +7,11 @@ import com.empresa.cardtransactionsystem.domain.model.CardData;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
-import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TraceparentExtractor;
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TransactionMetrics;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
+import com.empresa.cardtransactionsystem.domain.ports.output.CallbackNotifierPort;
+import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublisherPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.SagaStarterPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import com.empresa.cardtransactionsystem.domain.service.CardValidationService;
@@ -39,6 +40,8 @@ class TransactionOrchestratorTest {
     @Mock private CardValidationService cardValidationService;
     @Mock private IdempotencyService idempotencyService;
     @Mock private CachePort cachePort;
+    @Mock private DomainEventPublisherPort eventPublisher;
+    @Mock private CallbackNotifierPort callbackNotifier;
     @Mock private TraceparentExtractor traceparentExtractor;
     @Mock private TransactionMetrics metrics;
 
@@ -51,7 +54,7 @@ class TransactionOrchestratorTest {
         orchestrator = new TransactionOrchestrator(
                 sagaStarterPort, transactionRepository,
                 cardValidationService, idempotencyService, cachePort,
-                traceparentExtractor, metrics, 80);
+                eventPublisher, callbackNotifier, traceparentExtractor, metrics, 80);
         lenient().when(cardValidationService.tokenize(any(CardData.class))).thenReturn(TOKEN);
         lenient().when(idempotencyService.check(anyString())).thenReturn(Optional.empty());
         lenient().when(cachePort.getFraudScore(any())).thenReturn(Optional.empty());
@@ -68,10 +71,11 @@ class TransactionOrchestratorTest {
         assertThat(result).isEqualTo(uuid);
         verify(sagaStarterPort, never()).start(any());
         verify(transactionRepository, never()).save(any());
+        verify(eventPublisher, never()).publish(any());
     }
 
     @Test
-    @DisplayName("should save REJECTED payload and not start saga when fraud score exceeds threshold")
+    @DisplayName("should save REJECTED payload and publish event when fraud score exceeds threshold")
     void shouldRejectImmediatelyWhenFraudScoreExceedsThreshold() {
         var uuid = UUID.randomUUID();
         when(cachePort.getFraudScore(TOKEN)).thenReturn(Optional.of(FraudScore.of(85)));
@@ -81,11 +85,12 @@ class TransactionOrchestratorTest {
         assertThat(result).isEqualTo(uuid);
         verify(transactionRepository).save(any());
         verify(sagaStarterPort, never()).start(any());
+        verify(eventPublisher).publish(any());
         verify(idempotencyService).store(eq("TXN-001"), any(TransactionResult.class));
     }
 
     @Test
-    @DisplayName("should save PENDING payload and start saga for valid request")
+    @DisplayName("should save PENDING payload, start saga and publish event for valid request")
     void shouldSavePendingAndStartSaga() {
         var uuid = UUID.randomUUID();
 
@@ -94,6 +99,7 @@ class TransactionOrchestratorTest {
         assertThat(result).isEqualTo(uuid);
         verify(transactionRepository).save(any());
         verify(sagaStarterPort).start(any());
+        verify(eventPublisher).publish(any());
     }
 
     @Test
@@ -121,7 +127,7 @@ class TransactionOrchestratorTest {
         return new CardTransactionRequest(
                 "TXN-001", uuid,
                 new CardDataRequest("4111111111111111", "123", "John Doe", "VISA"),
-                new BigDecimal("500.00"), 3
+                new BigDecimal("500.00"), 3, null
         );
     }
 }

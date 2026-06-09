@@ -46,7 +46,7 @@ class ValidateTransactionFunctionTest {
     void shouldDelegateToUseCase() {
         SagaPayload payload = new SagaPayload("TXN-001", UUID.randomUUID(), new CardToken("tok"),
                 new BigDecimal("500.00"), 1, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
 
         consumer.accept(payload);
 

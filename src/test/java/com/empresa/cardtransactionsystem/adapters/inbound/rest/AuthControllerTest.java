@@ -5,6 +5,7 @@ import com.empresa.cardtransactionsystem.domain.ports.input.LoginUseCase;
 import com.empresa.cardtransactionsystem.domain.exception.UnauthorizedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import io.micrometer.tracing.Tracer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -24,8 +25,8 @@ class AuthControllerTest {
     @Autowired
     MockMvc mockMvc;
 
-    @MockitoBean
-    LoginUseCase loginUseCase;
+    @MockitoBean LoginUseCase loginUseCase;
+    @MockitoBean Tracer tracer;
 
     @Test
     @DisplayName("should return 200 with JWT when credentials are valid")

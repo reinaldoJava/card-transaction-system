@@ -85,6 +85,6 @@ class ValidateBusinessRulesServiceTest {
     private SagaPayload payload(String amount, int installments) {
         return new SagaPayload("TXN-001", UUID.randomUUID(), TOKEN,
                 new BigDecimal(amount), installments, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
     }
 }

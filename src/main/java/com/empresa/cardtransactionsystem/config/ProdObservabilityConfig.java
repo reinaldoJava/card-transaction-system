@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.ssm.SsmClient;
 import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 
 @Configuration
-@Profile("!local")
+@Profile("env-aws")
 public class ProdObservabilityConfig {
 
     @Bean

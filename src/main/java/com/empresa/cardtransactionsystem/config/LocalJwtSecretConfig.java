@@ -10,7 +10,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
 @Configuration
-@Profile("local")
+@Profile("env-local")
 public class LocalJwtSecretConfig {
 
     @Bean

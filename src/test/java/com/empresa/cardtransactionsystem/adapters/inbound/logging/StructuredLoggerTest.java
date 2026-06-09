@@ -1,79 +1,90 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.logging;
 
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.TraceContext;
+import io.micrometer.tracing.Tracer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.MDC;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
-@DisplayName("StructuredLogger")
 class StructuredLoggerTest {
 
-    private Logger mockLogger;
+    private Logger slf4jLogger;
+    private Tracer tracer;
     private StructuredLogger structuredLogger;
 
     @BeforeEach
     void setUp() {
+        slf4jLogger = mock(Logger.class);
+        tracer = mock(Tracer.class);
+        structuredLogger = StructuredLogger.of(slf4jLogger, tracer, "test-correlation-123");
+    }
+
+    @AfterEach
+    void tearDown() {
         MDC.clear();
-        mockLogger = mock(Logger.class);
-        structuredLogger = StructuredLogger.of(mockLogger);
     }
 
     @Test
-    @DisplayName("should create with generated correlationId when not provided")
-    void shouldCreateWithGeneratedCorrelationId() {
-        assertThat(structuredLogger.getCorrelationId()).isNotNull().isNotBlank();
+    void shouldInjectTraceAndSpanIdsFromTracerIntoMdc() {
+        String expectedTraceId = "abcdef123456";
+        String expectedSpanId = "7890ghijk";
+
+        Span mockSpan = mock(Span.class);
+        TraceContext mockContext = mock(TraceContext.class);
+
+        when(tracer.currentSpan()).thenReturn(mockSpan);
+        when(mockSpan.context()).thenReturn(mockContext);
+        when(mockContext.traceId()).thenReturn(expectedTraceId);
+        when(mockContext.spanId()).thenReturn(expectedSpanId);
+
+        structuredLogger.info("Iniciando processamento de transação");
+
+        assertThat(MDC.get("trace_id")).isEqualTo(expectedTraceId);
+        assertThat(MDC.get("span_id")).isEqualTo(expectedSpanId);
+        assertThat(MDC.get("correlationId")).isEqualTo("test-correlation-123");
+        verify(slf4jLogger).info("Iniciando processamento de transação");
     }
 
     @Test
-    @DisplayName("should create with provided correlationId")
-    void shouldCreateWithProvidedCorrelationId() {
-        String providedId = "txn-123";
-        StructuredLogger logger = StructuredLogger.of(mockLogger, providedId);
+    void shouldHandleLoggingWithoutActiveSpan() {
+        when(tracer.currentSpan()).thenReturn(null);
 
-        assertThat(logger.getCorrelationId()).isEqualTo(providedId);
+        String[] capturedExtraInfo = {null};
+        doAnswer(inv -> { capturedExtraInfo[0] = MDC.get("extra_info"); return null; })
+                .when(slf4jLogger).info(anyString());
+
+        structuredLogger.info("Log sem span ativo", "extra_info", "valor");
+
+        assertThat(MDC.get("trace_id")).isNull();
+        assertThat(capturedExtraInfo[0]).isEqualTo("valor");
+        assertThat(MDC.get("extra_info")).isNull();
     }
 
     @Test
-    @DisplayName("should add correlationId to MDC on creation")
-    void shouldAddCorrelationIdToMdc() {
-        String correlationId = structuredLogger.getCorrelationId();
-
-        assertThat(MDC.get("correlationId")).isEqualTo(correlationId);
-    }
-
-    @Test
-    @DisplayName("should add custom context to MDC")
-    void shouldAddCustomContextToMdc() {
-        structuredLogger.addContext("userId", "user-123");
-        structuredLogger.addContext("transactionId", "txn-456");
-
-        assertThat(MDC.get("userId")).isEqualTo("user-123");
-        assertThat(MDC.get("transactionId")).isEqualTo("txn-456");
-    }
-
-    @Test
-    @DisplayName("should remove context from MDC")
-    void shouldRemoveContextFromMdc() {
-        structuredLogger.addContext("key", "value");
-        assertThat(MDC.get("key")).isEqualTo("value");
-
-        structuredLogger.removeContext("key");
-        assertThat(MDC.get("key")).isNull();
-    }
-
-    @Test
-    @DisplayName("should clear all MDC context")
-    void shouldClearAllMdcContext() {
-        structuredLogger.addContext("key1", "value1");
-        structuredLogger.addContext("key2", "value2");
+    void shouldClearContextCorrectly() {
+        structuredLogger.addContext("custom_key", "custom_value");
+        structuredLogger.info("Log com contexto");
+        assertThat(MDC.get("custom_key")).isEqualTo("custom_value");
 
         structuredLogger.clear();
 
-        assertThat(MDC.get("key1")).isNull();
-        assertThat(MDC.get("key2")).isNull();
+        assertThat(MDC.get("custom_key")).isNull();
+        assertThat(MDC.get("correlationId")).isNull();
+    }
+
+    @Test
+    void shouldRemoveTransientKeyValuePairsAfterLog() {
+        when(tracer.currentSpan()).thenReturn(null);
+
+        structuredLogger.info("msg", "transient_key", "transient_val");
+
+        assertThat(MDC.get("transient_key")).isNull();
+        assertThat(MDC.get("correlationId")).isEqualTo("test-correlation-123");
     }
 }

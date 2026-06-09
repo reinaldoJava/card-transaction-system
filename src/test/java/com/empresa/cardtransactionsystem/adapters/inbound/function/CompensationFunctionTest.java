@@ -47,7 +47,7 @@ class CompensationFunctionTest {
         UUID uuid = UUID.randomUUID();
         SagaPayload payload = new SagaPayload("TXN-001", uuid, new CardToken("tok"),
                 new BigDecimal("500.00"), 1, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
 
         function.accept(payload);
 

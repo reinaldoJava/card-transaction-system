@@ -6,6 +6,7 @@ import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
 import io.micrometer.observation.annotation.Observed;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 @Repository
+@Profile("cache-dynamodb")
 public class DynamoDbCacheAdapter implements CachePort {
 
     private final DynamoDbTable<CacheDdbEntity> cacheTable;

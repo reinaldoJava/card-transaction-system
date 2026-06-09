@@ -4,6 +4,7 @@ import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
 import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
 import io.micrometer.observation.annotation.Observed;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
@@ -12,6 +13,7 @@ import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
 import java.util.Optional;
 
 @Repository
+@Profile("ledger-dynamodb")
 public class DynamoDbClientProfileAdapter implements ClientProfilePort {
 
     private final DynamoDbTable<ClientProfileDdbEntity> profileTable;

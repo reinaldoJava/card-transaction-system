@@ -12,7 +12,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 
 @Configuration
-@Profile("!local")
+@Profile("env-aws")
 public class SsmJwtSecretConfig {
 
     @Bean

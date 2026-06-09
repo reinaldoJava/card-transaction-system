@@ -44,7 +44,7 @@ class DynamoDbTransactionAdapterTest {
         UUID correlationId = UUID.randomUUID();
         SagaPayload payload = new SagaPayload("TXN001", correlationId,
                 new CardToken("safe-token"), new BigDecimal("100.00"), 1, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
 
         adapter.save(payload);
 
@@ -58,7 +58,7 @@ class DynamoDbTransactionAdapterTest {
         UUID correlationId = UUID.randomUUID();
         SagaPayload payload = new SagaPayload("TXN002", correlationId,
                 new CardToken("safe-token"), new BigDecimal("200.00"), 2, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
 
         adapter.save(payload);
         adapter.updateStatus(correlationId, TransactionStatus.APPROVED);

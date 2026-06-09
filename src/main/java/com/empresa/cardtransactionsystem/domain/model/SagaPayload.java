@@ -13,28 +13,29 @@ public record SagaPayload(
         Brand brand,
         TransactionStatus status,
         LocalDateTime createdAt,
-        String traceparent
+        String traceparent,
+        String callbackUrl
 ) {
     public static SagaPayload pending(
             String transactionId, UUID correlationId, CardToken cardToken,
-            BigDecimal amount, int installments, Brand brand) {
+            BigDecimal amount, int installments, Brand brand, String callbackUrl) {
         return new SagaPayload(
                 transactionId, correlationId, cardToken,
                 amount, installments, brand,
-                TransactionStatus.PENDING, LocalDateTime.now(), null);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, callbackUrl);
     }
 
     public static SagaPayload rejected(
             String transactionId, UUID correlationId, CardToken cardToken,
-            BigDecimal amount, int installments, Brand brand) {
+            BigDecimal amount, int installments, Brand brand, String callbackUrl) {
         return new SagaPayload(
                 transactionId, correlationId, cardToken,
                 amount, installments, brand,
-                TransactionStatus.REJECTED, LocalDateTime.now(), null);
+                TransactionStatus.REJECTED, LocalDateTime.now(), null, callbackUrl);
     }
 
     public SagaPayload withTraceparent(String traceparent) {
         return new SagaPayload(transactionId, correlationId, cardToken,
-                amount, installments, brand, status, createdAt, traceparent);
+                amount, installments, brand, status, createdAt, traceparent, callbackUrl);
     }
 }

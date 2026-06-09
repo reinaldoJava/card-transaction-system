@@ -112,7 +112,8 @@ locals {
         "transactionId.$": "$.transactionId",
         "uuidTransaction.$": "$.correlationId",
         "fraudScore.$": "$.fraudScore",
-        "traceparent.$": "$.traceparent"
+        "traceparent.$": "$.traceparent",
+        "callbackUrl.$": "$.callbackUrl"
       },
       "TimeoutSeconds": 30,
       "End": true
