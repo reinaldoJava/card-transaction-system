@@ -28,35 +28,45 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
-		<!-- Actuator + Micrometer (MeterRegistry auto-config) -->
+		<!-- Actuator para expor as métricas e gerenciar observabilidade -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
-		<!-- Observability: Micrometer Tracing → OTel bridge + OTLP exporter -->
+		<!-- NOVO: Starter do Spring Boot 4 que gerencia o ciclo de vida do SDK do OpenTelemetry -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-actuator-autoconfigure</artifactId>
+		</dependency>
+
+		<!-- A ponte oficial Micrometer <-> OpenTelemetry -->
 		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-tracing-bridge-otel</artifactId>
 		</dependency>
+
+		<!-- Os exportadores que você utiliza (mantenha apenas estes dois) -->
 		<dependency>
 			<groupId>io.opentelemetry</groupId>
 			<artifactId>opentelemetry-exporter-otlp</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>io.opentelemetry</groupId>
-			<artifactId>opentelemetry-exporter-logging</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-otlp</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>io.opentelemetry</groupId>
+			<artifactId>opentelemetry-exporter-logging</artifactId>
+		</dependency>
+
 
 		<!-- AOP para @Observed -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aspectj</artifactId>
 		</dependency>
+
 
 		<!-- Test -->
 		<dependency>
@@ -170,6 +180,7 @@
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
+			<version>4.0.5</version>
 		</dependency>
 
 		<!-- Temporal SDK -->
@@ -177,6 +188,13 @@
 			<groupId>io.temporal</groupId>
 			<artifactId>temporal-spring-boot-starter</artifactId>
 			<version>1.35.0</version>
+			<exclusions>
+				<!-- Remove o Shim do OpenTracing que desativa a auto-configuração do Spring Boot -->
+				<exclusion>
+					<groupId>io.opentelemetry</groupId>
+					<artifactId>opentelemetry-opentracing-shim</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>

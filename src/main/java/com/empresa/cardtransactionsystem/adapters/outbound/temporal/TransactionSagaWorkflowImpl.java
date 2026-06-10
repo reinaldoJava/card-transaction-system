@@ -5,6 +5,7 @@ import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
 import io.temporal.activity.ActivityOptions;
 import io.temporal.common.RetryOptions;
+import io.temporal.failure.ActivityFailure;
 import io.temporal.workflow.Workflow;
 
 import java.time.Duration;
@@ -43,15 +44,12 @@ public class TransactionSagaWorkflowImpl implements TransactionSagaWorkflow {
             return;
         }
 
-        FraudScore fraudScore = activities.analyzeFraud(payload);
-        if (fraudScore.exceedsThreshold(fraudThreshold)) {
-            activities.rejectTransaction(
-                    payload.transactionId(), payload.correlationId(),
-                    "High fraud score: " + fraudScore.score(), payload.traceparent());
-            return;
-        }
-
-        activities.approveTransaction(
-                payload.transactionId(), payload.correlationId(), payload.traceparent());
-    }
-}
+        FraudScore fraudScore;
+        boolean usedFallback = false;
+        try {
+            fraudScore = activities.analyzeFraud(payload);
+        } catch (ActivityFailure e) {
+            Workflow.getLogger(TransactionSagaWorkflowImpl.class)
+                    .warn("Fraud analysis failed — applying degraded-mode fallback rules: {}", e.getMessage());
+            fraudScore = activities.evaluateFraudFallback(payload);
+            usedFall

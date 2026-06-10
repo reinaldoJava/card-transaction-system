@@ -84,7 +84,8 @@ class DynamoDbCacheAdapterTest {
                 new BigDecimal("10000.00"),
                 new BigDecimal("2000.00"),
                 24,
-                new BigDecimal("0.01")
+                new BigDecimal("0.01"),
+                false
         );
 
         adapter.putClientProfile(cardToken, profile);

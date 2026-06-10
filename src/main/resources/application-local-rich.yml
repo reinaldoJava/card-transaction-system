@@ -1,4 +1,16 @@
 spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cards
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
   data:
     redis:
       host: localhost
@@ -10,6 +22,9 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 aws:
   dynamodb:
@@ -20,19 +35,11 @@ step-functions:
   state-machine-arn: arn:aws:states:us-east-1:000000000000:stateMa
 
 temporal:
-  host: localhost
+  host: 127.0.0.1
   port: 7233
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/card_transactions
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+logging.level.root: INFO
+management:
+  tracing:
+    sampling:
+      probability: 1.0

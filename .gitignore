@@ -60,3 +60,6 @@ HELP.md
 
 # Segredos e estado do Terraform sao tratados em terraform/.gitignore
 # (terraform.tfvars, *.tfstate*, .terraform/). Nunca commitar credenciais.
+
+### Local environment (credenciais locais) ###
+.env

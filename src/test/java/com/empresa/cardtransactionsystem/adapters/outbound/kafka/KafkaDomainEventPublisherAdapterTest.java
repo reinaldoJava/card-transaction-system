@@ -43,7 +43,7 @@ class KafkaDomainEventPublisherAdapterTest {
                 "key.serializer", StringSerializer.class,
                 "value.serializer", JacksonJsonSerializer.class
         );
-        KafkaTemplate<String, Object> kafkaTemplate =
+        KafkaTemplate<String, String> kafkaTemplate =
                 new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(producerConfig));
         adapter = new KafkaDomainEventPublisherAdapter(kafkaTemplate);
 

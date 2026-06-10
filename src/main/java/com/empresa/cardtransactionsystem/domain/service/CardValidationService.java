@@ -2,12 +2,13 @@ package com.empresa.cardtransactionsystem.domain.service;
 
 import com.empresa.cardtransactionsystem.domain.model.CardData;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
+import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
-
+@Service
 public class CardValidationService {
 
     public CardToken tokenize(CardData cardData) {

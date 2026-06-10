@@ -21,7 +21,6 @@ public class StatusController {
     @GetMapping("/status/{correlationId}")
     public ResponseEntity<TransactionStatusResponse> getStatus(@PathVariable UUID correlationId) {
         return getTransactionStatusUseCase.getStatus(correlationId)
-                .map(status -> ResponseEntity.ok(new TransactionStatusResponse(correlationId, status, null)))
-                .orElse(ResponseEntity.notFound().build());
-    }
-}
+                .map(result -> ResponseEntity.ok(
+                        new TransactionStatusResponse(correlationId, result.status(), result.reason())))
+                .orElse

@@ -35,7 +35,7 @@ class ValidateBusinessRulesServiceTest {
 
     private static final CardToken TOKEN = new CardToken("test-token-uuid");
     private static final ClientProfile PROFILE = new ClientProfile(
-            new BigDecimal("10000.00"), new BigDecimal("0.00"), 24, new BigDecimal("0.01"));
+            new BigDecimal("10000.00"), new BigDecimal("0.00"), 24, new BigDecimal("0.01"), false);
 
     @BeforeEach
     void setUp() {
@@ -62,7 +62,7 @@ class ValidateBusinessRulesServiceTest {
     @DisplayName("should reject when total amount exceeds available credit")
     void shouldRejectWhenAmountExceedsAvailableCredit() {
         ClientProfile limited = new ClientProfile(
-                new BigDecimal("100.00"), new BigDecimal("90.00"), 24, new BigDecimal("0.01"));
+                new BigDecimal("100.00"), new BigDecimal("90.00"), 24, new BigDecimal("0.01"), false);
         when(clientProfilePort.findByCardToken(TOKEN)).thenReturn(Optional.of(limited));
         ValidationResult result = service.validate(payload("50.00", 1));
         assertThat(result.approved()).isFalse();

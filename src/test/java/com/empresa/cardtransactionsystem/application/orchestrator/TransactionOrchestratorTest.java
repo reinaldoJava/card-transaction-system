@@ -2,6 +2,7 @@ package com.empresa.cardtransactionsystem.application.orchestrator;
 
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardDataRequest;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardTransactionRequest;
+import com.empresa.cardtransactionsystem.adapters.inbound.rest.mapper.CardDataMapper;
 import com.empresa.cardtransactionsystem.application.usecase.IdempotencyService;
 import com.empresa.cardtransactionsystem.domain.model.CardData;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
@@ -44,6 +45,8 @@ class TransactionOrchestratorTest {
     @Mock private CallbackNotifierPort callbackNotifier;
     @Mock private TraceparentExtractor traceparentExtractor;
     @Mock private TransactionMetrics metrics;
+    @Mock private CardDataMapper cardDataMapper;
+
 
     private TransactionOrchestrator orchestrator;
 
@@ -54,7 +57,7 @@ class TransactionOrchestratorTest {
         orchestrator = new TransactionOrchestrator(
                 sagaStarterPort, transactionRepository,
                 cardValidationService, idempotencyService, cachePort,
-                eventPublisher, callbackNotifier, traceparentExtractor, metrics, 80);
+                eventPublisher, callbackNotifier, traceparentExtractor, metrics, 80,cardDataMapper);
         lenient().when(cardValidationService.tokenize(any(CardData.class))).thenReturn(TOKEN);
         lenient().when(idempotencyService.check(anyString())).thenReturn(Optional.empty());
         lenient().when(cachePort.getFraudScore(any())).thenReturn(Optional.empty());

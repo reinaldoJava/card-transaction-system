@@ -9,6 +9,5 @@ import java.util.UUID;
 public interface TransactionRepositoryPort {
     void save(SagaPayload payload);
     void updateStatus(UUID correlationId, TransactionStatus status);
-    Optional<TransactionStatus> findStatus(UUID correlationId);
-    Optional<SagaPayload> findById(UUID correlationId);
-}
+    void updateStatusAndReason(UUID correlationId, TransactionStatus status, String reason);
+    Optional<TransactionStatu

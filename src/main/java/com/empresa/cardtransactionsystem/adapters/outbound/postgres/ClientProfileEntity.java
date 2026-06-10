@@ -28,6 +28,9 @@ public class ClientProfileEntity {
     @Column(name = "monthly_rate", precision = 5, scale = 4, nullable = false)
     private BigDecimal monthlyRate;
 
+    @Column(name = "vip", nullable = false)
+    private boolean vip;
+
     public static ClientProfileEntity from(ClientProfile profile, String cardToken) {
         ClientProfileEntity e = new ClientProfileEntity();
         e.cardToken = cardToken;
@@ -35,13 +38,12 @@ public class ClientProfileEntity {
         e.usedCredit = profile.usedCredit();
         e.maxInstallments = profile.maxInstallments();
         e.monthlyRate = profile.monthlyRate();
+        e.vip = profile.vip();
         return e;
     }
 
     public ClientProfile toDomain() {
-        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate);
+        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip);
     }
 
-    public String getCardToken() { return cardToken; }
-    public void setCardToken(String cardToken) { this.cardToken = cardToken; }
-}
+    public String getCardToken

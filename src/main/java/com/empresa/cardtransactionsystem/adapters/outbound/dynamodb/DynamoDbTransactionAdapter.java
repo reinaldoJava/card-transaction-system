@@ -45,21 +45,19 @@ public class DynamoDbTransactionAdapter implements TransactionRepositoryPort {
     }
 
     @Override
-    @Observed(name = "db.transaction.find_status", contextualName = "dynamodb.get-transaction-status")
-    public Optional<TransactionStatus> findStatus(UUID correlationId) {
-        return findEntity(correlationId)
-                .map(e -> TransactionStatus.valueOf(e.getStatus()));
+    @Observed(name = "db.transaction.update_status_reason", contextualName = "dynamodb.update-transaction-status-reason")
+    public void updateStatusAndReason(UUID correlationId, TransactionStatus status, String reason) {
+        CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
+        entity.setUuidTransaction(correlationId.toString());
+        entity.setStatus(status.name());
+        entity.setReason(reason);
+        transactionTable.updateItem(
+                UpdateItemEnhancedRequest.builder(CardTransactionDdbEntity.class)
+                        .item(entity)
+                        .build()
+        );
     }
 
     @Override
-    @Observed(name = "db.transaction.find_by_id", contextualName = "dynamodb.get-transaction")
-    public Optional<SagaPayload> findById(UUID correlationId) {
-        return findEntity(correlationId).map(CardTransactionDdbEntity::toDomain);
-    }
-
-    private Optional<CardTransactionDdbEntity> findEntity(UUID correlationId) {
-        return Optional.ofNullable(
-                transactionTable.getItem(r -> r.key(k -> k.partitionValue(correlationId.toString())))
-        );
-    }
-}
+    @Observed(name = "db.transaction.find_status", contextualName = "dynamodb.get-transaction-status")
+    public Optional<TransactionSt

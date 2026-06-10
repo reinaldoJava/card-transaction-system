@@ -7,23 +7,23 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
-@Profile("queue-kafka")
+@Profile("local-rich")
 public class KafkaDomainEventPublisherAdapter implements DomainEventPublisherPort {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaDomainEventPublisherAdapter.class);
     private static final String TOPIC = "card-transactions";
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
-    public KafkaDomainEventPublisherAdapter(KafkaTemplate<String, Object> kafkaTemplate) {
+    public KafkaDomainEventPublisherAdapter(KafkaTemplate<String, String> kafkaTemplate,
+                                             ObjectMapper objectMapper) {
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
-    public void publish(SagaPayload payload) {
-        log.info("Publishing transaction event to Kafka: correlationId={}", payload.correlationId());
-        kafkaTemplate.send(TOPIC, payload.correlationId().toString(), payload);
-    }
-}
+    public void publish(SagaPayload payload) 

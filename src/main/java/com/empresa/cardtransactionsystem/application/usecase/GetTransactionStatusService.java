@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.application.usecase;
 
+import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
@@ -18,7 +19,4 @@ public class GetTransactionStatusService implements GetTransactionStatusUseCase 
     }
 
     @Override
-    public Optional<TransactionStatus> getStatus(UUID correlationId) {
-        return transactionRepository.findStatus(correlationId);
-    }
-}
+    public Optional<TransactionResult> getStatus(UUID correlationId) {

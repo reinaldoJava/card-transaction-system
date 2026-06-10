@@ -6,6 +6,7 @@ import com.empresa.cardtransactionsystem.domain.model.auth.JwtToken;
 import com.empresa.cardtransactionsystem.domain.model.auth.OpaqueToken;
 import com.empresa.cardtransactionsystem.domain.ports.output.TokenExchangePort;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.lambda.LambdaClient;
@@ -14,6 +15,7 @@ import software.amazon.awssdk.services.lambda.model.InvokeRequest;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@Profile("env-aws")
 public class LambdaTokenExchangeAdapter implements TokenExchangePort {
 
     private final LambdaClient lambdaClient;

@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.rest;
 
+import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
 import io.micrometer.tracing.Tracer;
@@ -31,7 +32,7 @@ class StatusControllerTest {
     void shouldReturn200WithStatusWhenFound() throws Exception {
         var correlationId = UUID.randomUUID();
         when(getTransactionStatusUseCase.getStatus(correlationId))
-                .thenReturn(Optional.of(TransactionStatus.APPROVED));
+                .thenReturn(Optional.of(TransactionResult.approved(correlationId)));
 
         mockMvc.perform(get("/status/{correlationId}", correlationId))
                 .andExpect(status().isOk())
@@ -44,7 +45,7 @@ class StatusControllerTest {
     void shouldReturn200WithPendingStatus() throws Exception {
         var correlationId = UUID.randomUUID();
         when(getTransactionStatusUseCase.getStatus(correlationId))
-                .thenReturn(Optional.of(TransactionStatus.PENDING));
+                .thenReturn(Optional.of(new TransactionResult(correlationId, TransactionStatus.PENDING, null)));
 
         mockMvc.perform(get("/status/{correlationId}", correlationId))
                 .andExpect(status().isOk())
@@ -56,8 +57,3 @@ class StatusControllerTest {
     void shouldReturn404WhenNotFound() throws Exception {
         var correlationId = UUID.randomUUID();
         when(getTransactionStatusUseCase.getStatus(correlationId)).thenReturn(Optional.empty());
-
-        mockMvc.perform(get("/status/{correlationId}", correlationId))
-                .andExpect(status().isNotFound());
-    }
-}

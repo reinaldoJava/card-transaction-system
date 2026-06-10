@@ -55,7 +55,7 @@ public class FunctionsConfig {
             GetTransactionStatusUseCase getTransactionStatusUseCase) {
         return wrapFn(correlationId ->
                 getTransactionStatusUseCase.getStatus(correlationId)
-                        .map(status -> new TransactionStatusResponse(correlationId, status, null))
+                        .map(result -> new TransactionStatusResponse(correlationId, result.status(), result.reason()))
                         .orElseThrow(() -> new IllegalArgumentException("Transaction not found: " + correlationId)));
     }
 
@@ -186,7 +186,4 @@ public class FunctionsConfig {
             sdk.getSdkTracerProvider().forceFlush().join(2, TimeUnit.SECONDS);
         }
         if (meterRegistry instanceof FlushableOtlpMeterRegistry otlp) {
-            otlp.flush();
-        }
-    }
-}
+            otlp.flush()

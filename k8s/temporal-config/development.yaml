@@ -1,0 +1,71 @@
+global:
+  membership:
+    maxJoinDuration: 30s
+  pprof:
+    port: 0
+  metrics:
+    prometheus:
+      timerType: histogram
+      listenAddress: 0.0.0.0:9090
+
+persistence:
+  default:
+    driver: postgres
+    sql:
+      user: postgres
+      password: postgres
+      host: postgres
+      port: 5432
+      database: temporal
+      maxConns: 20
+      maxIdleConns: 10
+      connectAttributes:
+        application_name: temporal_default
+  visibility:
+    driver: postgres
+    sql:
+      user: postgres
+      password: postgres
+      host: postgres
+      port: 5432
+      database: temporal_visibility
+      maxConns: 20
+      maxIdleConns: 10
+      connectAttributes:
+        application_name: temporal_visibility
+
+services:
+  frontend:
+    rpc:
+      port: 7233
+      bindOnIP: 0.0.0.0
+  matching:
+    rpc:
+      port: 7235
+      bindOnIP: 0.0.0.0
+  history:
+    rpc:
+      port: 7234
+      bindOnIP: 0.0.0.0
+  worker:
+    rpc:
+      port: 7239
+      bindOnIP: 0.0.0.0
+
+clusterMetadata:
+  enableGlobalNamespace: false
+  failoverVersionIncrement: 10
+  masterClusterName: "active"
+  currentClusterName: "active"
+  clusterInformation:
+    active:
+      enabled: true
+      initialFailoverVersion: 1
+      rpcAddress: temporal:7233
+
+dcRedirectionPolicy:
+  policy: "noop"
+
+log:
+  stdout: true
+  level: info

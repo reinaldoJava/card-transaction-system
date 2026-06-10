@@ -2,7 +2,7 @@
 
 Processamento de transações de cartão de crédito em arquitetura **serverless de custo zero** (exceto Bedrock): autorização **assíncrona** com saga distribuída (AWS Step Functions), análise de fraude por agente Bedrock (ReAct), observability **OpenTelemetry → New Relic** e logging estruturado em JSON. Construído com **Arquitetura Hexagonal + DDD**, Java 25 e Spring Boot 4, rodando em AWS Lambda (Function URL) + DynamoDB.
 
-> Documentos complementares: [`diagrama.html`](./diagrama.html) (C4 container), [`DEEP_DIVE.md`](./DEEP_DIVE.md) (decisões de arquitetura/custo), [`OBSERVABILITY.md`](./OBSERVABILITY.md) (plano de observability), [`DEPLOYMENT.md`](./DEPLOYMENT.md), [`LOCALSTACK.md`](./LOCALSTACK.md).
+> Documentos complementares: [`docs/diagrama.html`](./docs/diagrama.html) (C4 container), [`docs/DEEP_DIVE.md`](./docs/DEEP_DIVE.md) (decisões de arquitetura/custo), [`docs/OBSERVABILITY.md`](./docs/OBSERVABILITY.md) (plano de observability), [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md), [`docs/LOCALSTACK.md`](./docs/LOCALSTACK.md).
 
 ---
 
@@ -166,7 +166,7 @@ Instrumentação única com **OpenTelemetry via Micrometer Observation** (sem ja
 - **Local (`local`):** `LoggingSpanExporter` (console) por padrão; Jaeger opt-in (`management.otlp.tracing.endpoint`). Zero custo, offline.
 - **AWS (`!local`):** OTLP → New Relic (`otlp.nr-data.net`), `api-key` lida do **SSM**. Traces + métricas, com dashboard e 4 alertas provisionados via `newrelic.tf`.
 
-Detalhes críticos tratados: **force flush** antes do freeze e propagação do **`traceparent` W3C** dentro do `SagaPayload` (trace único `/process → SFN → UpdateStatus`). Logs em JSON com `trace_id`/`span_id` no MDC. Plano completo em [`OBSERVABILITY.md`](./OBSERVABILITY.md).
+Detalhes críticos tratados: **force flush** antes do freeze e propagação do **`traceparent` W3C** dentro do `SagaPayload` (trace único `/process → SFN → UpdateStatus`). Logs em JSON com `trace_id`/`span_id` no MDC. Plano completo em [`OBSERVABILITY.md`](./docs/OBSERVABILITY.md).
 
 ---
 
@@ -229,7 +229,7 @@ terraform init
 terraform apply   # cria Lambdas (arm64+SnapStart), Function URLs, DynamoDB,
                   # Step Functions, SSM, e recursos New Relic (dashboard/alertas)
 ```
-Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `terraform.tfvars` (não versionar). Detalhes em [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `terraform.tfvars` (não versionar). Detalhes em [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
 
 ---
 
@@ -243,6 +243,124 @@ Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `te
 
 ---
 
+## Testes Locais (massa de dados)
+
+O seed é **automático**: o Postgres executa `scripts/seed-local.sql` na primeira inicialização do volume, e o serviço `redis-seed` seta o score de fraude assim que o Redis sobe.
+
+```bash
+docker-compose up -d
+# Aguardar todos os serviços healthy, depois iniciar a aplicação:
+SPRING_PROFILES_ACTIVE=local-rich ./mvnw spring-boot:run
+```
+
+> **Primeiro uso / reset:** se o volume Postgres já existir, o initdb não re-executa.
+> Para resetar: `docker-compose down -v && docker-compose up -d`
+
+### Autenticação
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"usuario_teste","password":"senha123"}' | jq -r '.token')
+```
+
+---
+
+### Cenário 1 — Caminho feliz (APROVADO)
+
+Cartão VISA `4111 1111 1111 1111` · limite R$ 10.000 · sem uso · R$ 500 em 3x
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-happy-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000001",
+    "cardDataRequest": {
+      "number": "4111111111111111",
+      "cvv": "123",
+      "brand": "VISA",
+      "name": "JOAO DA SILVA"
+    },
+    "amount": 500.00,
+    "installments": 3,
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Resultado esperado: "status": "APPROVED"
+```
+
+---
+
+### Cenário 2 — Transação negada (crédito insuficiente)
+
+Cartão MASTER `5500 0055 5555 5559` · limite R$ 500 · usado R$ 490 (disponível R$ 10) · R$ 200
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-denied-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000002",
+    "cardDataRequest": {
+      "number": "5500005555555559",
+      "cvv": "321",
+      "brand": "MASTER",
+      "name": "MARIA SOUZA"
+    },
+    "amount": 200.00,
+    "installments": 1,
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Resultado esperado: "status": "REJECTED" (total com juros R$ 203,98 > R$ 10,00 disponível)
+```
+
+---
+
+### Cenário 3 — Bloqueada pelo anti-fraude
+
+Cartão VISA `4000 0000 0000 0002` · crédito OK · score de fraude 95 em cache Redis (seedado automaticamente)
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-fraud-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000003",
+    "cardDataRequest": {
+      "number": "4000000000000002",
+      "cvv": "999",
+      "brand": "VISA",
+      "name": "CARLOS FRAUDE"
+    },
+    "amount": 100.00,
+    "installments": 1,
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Resultado esperado: "status": "REJECTED" (fraud score 95 >= threshold 80)
+```
+
+---
+
+### Credenciais de seed
+
+| Usuário | Senha | Cenário | Cartão |
+|---------|-------|---------|--------|
+| `usuario_teste` | `senha123` | Caminho feliz | `4111 1111 1111 1111` (VISA) |
+| `usuario_teste` | `senha123` | Crédito insuficiente | `5500 0055 5555 5559` (MASTER) |
+| `usuario_teste` | `senha123` | Bloqueada por fraude | `4000 0000 0000 0002` (VISA) |
+| `admin` | `admin123` | — | — |
+
+---
+
 ## Troubleshooting
 
 ```bash
@@ -250,7 +368,7 @@ Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `te
 docker-compose ps && docker-compose logs localstack
 docker-compose restart localstack
 
-# Resetar ambiente
+# Resetar ambiente (apaga volumes — re-executa seed)
 docker-compose down -v && docker-compose up -d
 
 # DynamoDB local
@@ -259,5 +377,5 @@ aws dynamodb delete-table --table-name card-transactions --endpoint-url http://l
 
 ---
 
-**Última atualização:** 2026-06-06 · **Versão:** 0.0.1-SNAPSHOT · **Status:** arquitetura assíncrona + observability implementadas (108 testes verdes)
+**Última atualização:** 2026-06-10 · **Versão:** 0.0.1-SNAPSHOT · **Status:** arquitetura assíncrona + observability implementadas (108 testes verdes)
 **Contato:** reinaldo.java@gmail.com · **Licença:** MIT

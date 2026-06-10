@@ -24,6 +24,7 @@ public class CardTransactionDdbEntity {
     private String status;
     private String createdAt;
     private String callbackUrl;
+    private String reason;
 
     @DynamoDbPartitionKey
     public String getUuidTransaction() { return uuidTransaction; }
@@ -54,6 +55,9 @@ public class CardTransactionDdbEntity {
     public String getCallbackUrl() { return callbackUrl; }
     public void setCallbackUrl(String callbackUrl) { this.callbackUrl = callbackUrl; }
 
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+
     public static CardTransactionDdbEntity from(SagaPayload payload) {
         CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
         entity.setUuidTransaction(payload.correlationId().toString());
@@ -74,4 +78,7 @@ public class CardTransactionDdbEntity {
                 UUID.fromString(uuidTransaction),
                 new CardToken(cardToken),
                 amount,
-       
+                installments,
+                Brand.valueOf(brand),
+                TransactionStatus.valueOf(status),
+      

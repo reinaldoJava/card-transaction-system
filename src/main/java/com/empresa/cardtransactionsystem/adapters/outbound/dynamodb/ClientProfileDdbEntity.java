@@ -13,6 +13,7 @@ public class ClientProfileDdbEntity {
     private BigDecimal usedCredit;
     private int maxInstallments;
     private BigDecimal monthlyRate;
+    private boolean vip;
 
     @DynamoDbPartitionKey
     public String getCardToken() {
@@ -55,8 +56,11 @@ public class ClientProfileDdbEntity {
         this.monthlyRate = monthlyRate;
     }
 
+    public boolean isVip() { return vip; }
+    public void setVip(boolean vip) { this.vip = vip; }
+
     public ClientProfile toDomain() {
-        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate);
+        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip);
     }
 
     public static ClientProfileDdbEntity fromDomain(ClientProfile domain, String cardToken) {
@@ -64,8 +68,4 @@ public class ClientProfileDdbEntity {
         entity.setCardToken(cardToken);
         entity.setCreditLimit(domain.creditLimit());
         entity.setUsedCredit(domain.usedCredit());
-        entity.setMaxInstallments(domain.maxInstallments());
-        entity.setMonthlyRate(domain.monthlyRate());
-        return entity;
-    }
-}
+        entity.

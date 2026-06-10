@@ -45,6 +45,9 @@ public class TransactionEntity {
     @Column(name = "callback_url")
     private String callbackUrl;
 
+    @Column(name = "reason")
+    private String reason;
+
     public static TransactionEntity from(SagaPayload payload) {
         TransactionEntity e = new TransactionEntity();
         e.correlationId = payload.correlationId();
@@ -68,9 +71,8 @@ public class TransactionEntity {
     }
 
     public String getCallbackUrl() { return callbackUrl; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 
     public UUID getCorrelationId() { return correlationId; }
-    public void setCorrelationId(UUID correlationId) { this.correlationId = correlationId; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-}
+    public void setCorrelationId(UUID 

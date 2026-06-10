@@ -6,21 +6,35 @@ import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
+import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.CompensationUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateBusinessRulesUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateTransactionUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.output.CallbackNotifierPort;
+import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublisherPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Component
 @Profile("saga-temporal")
 public class TransactionSagaActivitiesImpl implements TransactionSagaActivities {
+
+    private static final Logger log = LoggerFactory.getLogger(TransactionSagaActivitiesImpl.class);
+
+    // Fallback thresholds
+    private static final BigDecimal VIP_FALLBACK_LIMIT    = new BigDecimal("500.00");
+    private static final BigDecimal REGULAR_FALLBACK_LIMIT = new BigDecimal("100.00");
+    private static final LocalTime  DAWN_START             = LocalTime.of(0, 0);
+    private static final LocalTime  DAWN_END               = LocalTime.of(6, 0);
 
     private final ValidateTransactionUseCase validateTransactionUseCase;
     private final ValidateBusinessRulesUseCase validateBusinessRulesUseCase;
@@ -30,6 +44,7 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
     private final DomainEventPublisherPort eventPublisher;
     private final CallbackNotifierPort callbackNotifier;
     private final IdempotencyService idempotencyService;
+    private final ClientProfilePort clientProfilePort;
 
     public TransactionSagaActivitiesImpl(
             ValidateTransactionUseCase validateTransactionUseCase,
@@ -39,7 +54,8 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
             TransactionRepositoryPort transactionRepository,
             DomainEventPublisherPort eventPublisher,
             CallbackNotifierPort callbackNotifier,
-            IdempotencyService idempotencyService) {
+            IdempotencyService idempotencyService,
+            ClientProfilePort clientProfilePort) {
         this.validateTransactionUseCase = validateTransactionUseCase;
         this.validateBusinessRulesUseCase = validateBusinessRulesUseCase;
         this.analyzeFraudUseCase = analyzeFraudUseCase;
@@ -48,6 +64,7 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
         this.eventPublisher = eventPublisher;
         this.callbackNotifier = callbackNotifier;
         this.idempotencyService = idempotencyService;
+        this.clientProfilePort = clientProfilePort;
     }
 
     @Override
@@ -65,30 +82,12 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
         return analyzeFraudUseCase.analyze(payload);
     }
 
+    /**
+     * Degraded-mode fallback rules (Rule-Based Fallback / Decisioning Fallback Policy):
+     *   1. Madrugada (00:00–06:00) → BLOCK ALL (score 100)
+     *   2. VIP client + amount ≤ R$500 → PASS (score 0)
+     *   3. Regular client + amount ≤ R$100 → PASS (score 0)
+     *   4. Otherwise → REJECT (score 100)
+     */
     @Override
-    public void approveTransaction(String transactionId, UUID correlationId, String traceparent) {
-        transactionRepository.updateStatus(correlationId, TransactionStatus.APPROVED);
-        TransactionResult result = TransactionResult.approved(correlationId);
-        idempotencyService.store(transactionId, result);
-        transactionRepository.findById(correlationId)
-                .map(p -> p.withTraceparent(traceparent))
-                .ifPresent(p -> {
-                    eventPublisher.publish(p);
-                    callbackNotifier.notify(p, result);
-                });
-    }
-
-    @Override
-    public void rejectTransaction(String transactionId, UUID correlationId, String reason, String traceparent) {
-        compensationUseCase.compensate(correlationId);
-        transactionRepository.updateStatus(correlationId, TransactionStatus.REJECTED);
-        TransactionResult result = TransactionResult.rejected(correlationId, reason);
-        idempotencyService.store(transactionId, result);
-        transactionRepository.findById(correlationId)
-                .map(p -> p.withTraceparent(traceparent))
-                .ifPresent(p -> {
-                    eventPublisher.publish(p);
-                    callbackNotifier.notify(p, result);
-                });
-    }
-}
+    public FraudScore evaluateFraudFallback(SagaPayload payload

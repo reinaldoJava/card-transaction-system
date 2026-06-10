@@ -6,7 +6,7 @@ services:
       - "127.0.0.1:4566:4566"
     environment:
       - DEBUG=1
-      - SERVICES=dynamodb,stepfunctions,ssm
+      - SERVICES=dynamodb,stepfunctions,ssm,events
       - AWS_DEFAULT_REGION=us-east-1
     volumes:
       - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
@@ -38,11 +38,60 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "127.0.0.1:5432:5432"
+    volumes:
+      - "./scripts/seed-local.sql:/docker-entrypoint-initdb.d/seed-local.sql"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  redis-seed:
+    image: redis:7-alpine
+    container_name: redis-seed
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      redis-cli -h redis
+      SET "FRAUD:acd08f29-a41f-2e55-ab0c-4f774b1562b0" "{\"score\":95}" EX 86400
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    container_name: temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=postgres
+      - POSTGRES_SEEDS=postgres
+      - DEFAULT_NAMESPACE=default
+      - DEFAULT_NAMESPACE_RETENTION=1d
+      - LOG_LEVEL=warn
+    ports:
+      - "127.0.0.1:7233:7233"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/7233' 2>/dev/null"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    container_name: temporal-ui
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "127.0.0.1:8080:8080"
 
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
@@ -64,25 +113,30 @@ services:
       timeout: 5s
       retries: 5
 
-  temporal:
-    image: temporalio/auto-setup:1.24.2
-    container_name: temporal
-    ports:
-      - "127.0.0.1:7233:7233"
-    environment:
-      - DB=postgresql
-      - POSTGRES_USER=postgres
-      - POSTGRES_PWD=postgres
-      - POSTGRES_SEEDS=postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
     ports:
       - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  ollama-setup:
+    image: ollama/ollama:latest
+    container_name: ollama-setup
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["ollama", "pull", "mistral"]
+    restart: "no"
 
   jaeger:
     image: jaegertracing/all-in-one:1.57
@@ -109,3 +163,6 @@ services:
     depends_on:
       jaeger:
         condition: service_healthy
+
+volumes:
+  ollama_data:

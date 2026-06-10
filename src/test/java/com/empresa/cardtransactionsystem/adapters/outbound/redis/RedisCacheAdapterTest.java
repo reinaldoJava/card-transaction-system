@@ -84,7 +84,8 @@ class RedisCacheAdapterTest {
                 new BigDecimal("15000.00"),
                 new BigDecimal("3000.00"),
                 12,
-                new BigDecimal("0.015")
+                new BigDecimal("0.015"),
+                false
         );
 
         adapter.putClientProfile(token, profile);

@@ -20,9 +20,9 @@ public interface TransactionSagaActivities {
     @ActivityMethod
     FraudScore analyzeFraud(SagaPayload payload);
 
+    /** Fallback called when analyzeFraud fails — applies static degraded-mode rules. */
     @ActivityMethod
-    void approveTransaction(String transactionId, UUID correlationId, String traceparent);
+    FraudScore evaluateFraudFallback(SagaPayload payload);
 
     @ActivityMethod
-    void rejectTransaction(String transactionId, UUID correlationId, String reason, String traceparent);
-}
+    void approveTransaction(String transactionId
