@@ -20,7 +20,7 @@ public class TracingConfig {
         return new OtelTracer(
                 otelTracer,
                 currentTraceContext,
-                event -> {} // EventPublisher vazio padrão
+                event -> {}
         );
     }
     @Bean
