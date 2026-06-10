@@ -57,3 +57,8 @@ class StatusControllerTest {
     void shouldReturn404WhenNotFound() throws Exception {
         var correlationId = UUID.randomUUID();
         when(getTransactionStatusUseCase.getStatus(correlationId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/status/{correlationId}", correlationId))
+                .andExpect(status().isNotFound());
+    }
+}

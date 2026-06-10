@@ -186,4 +186,7 @@ public class FunctionsConfig {
             sdk.getSdkTracerProvider().forceFlush().join(2, TimeUnit.SECONDS);
         }
         if (meterRegistry instanceof FlushableOtlpMeterRegistry otlp) {
-            otlp.flush()
+            otlp.flush();
+        }
+    }
+}

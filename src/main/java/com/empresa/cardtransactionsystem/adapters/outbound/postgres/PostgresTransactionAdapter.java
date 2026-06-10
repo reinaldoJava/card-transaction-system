@@ -41,4 +41,16 @@ public class PostgresTransactionAdapter implements TransactionRepositoryPort {
     @Override
     public Optional<TransactionStatus> findStatus(UUID correlationId) {
         return repository.findById(correlationId)
-                .map(e ->
+                .map(e -> TransactionStatus.valueOf(e.getStatus()));
+    }
+
+    @Override
+    public Optional<String> findReason(UUID correlationId) {
+        return repository.findById(correlationId).map(TransactionEntity::getReason);
+    }
+
+    @Override
+    public Optional<SagaPayload> findById(UUID correlationId) {
+        return repository.findById(correlationId).map(TransactionEntity::toDomain);
+    }
+}

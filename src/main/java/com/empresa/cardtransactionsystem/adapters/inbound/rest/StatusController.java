@@ -23,4 +23,6 @@ public class StatusController {
         return getTransactionStatusUseCase.getStatus(correlationId)
                 .map(result -> ResponseEntity.ok(
                         new TransactionStatusResponse(correlationId, result.status(), result.reason())))
-                .orElse
+                .orElse(ResponseEntity.notFound().build());
+    }
+}

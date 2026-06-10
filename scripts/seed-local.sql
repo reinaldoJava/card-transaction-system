@@ -67,4 +67,8 @@ ON CONFLICT (card_token) DO UPDATE
 --   Teste:  qualquer valor  →  REJECTED (score 95 >= threshold 80)
 
 INSERT INTO client_profiles (card_token, credit_limit, used_credit, max_installments, monthly_rate, vip) VALUES
-    ('acd08f2
+    ('acd08f29-a41f-2e55-ab0c-4f774b1562b0', 10000.0000, 0.0000, 12, 0.0199, false)
+ON CONFLICT (card_token) DO UPDATE
+    SET credit_limit = EXCLUDED.credit_limit,
+        used_credit  = EXCLUDED.used_credit,
+        vip          = EXCLUDED.vip;

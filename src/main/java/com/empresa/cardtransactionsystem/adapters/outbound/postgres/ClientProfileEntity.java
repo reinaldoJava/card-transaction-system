@@ -46,4 +46,8 @@ public class ClientProfileEntity {
         return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip);
     }
 
-    public String getCardToken
+    public String getCardToken() { return cardToken; }
+    public void setCardToken(String cardToken) { this.cardToken = cardToken; }
+    public boolean isVip() { return vip; }
+    public void setVip(boolean vip) { this.vip = vip; }
+}

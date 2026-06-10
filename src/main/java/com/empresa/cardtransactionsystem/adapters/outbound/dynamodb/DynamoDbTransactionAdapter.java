@@ -60,4 +60,25 @@ public class DynamoDbTransactionAdapter implements TransactionRepositoryPort {
 
     @Override
     @Observed(name = "db.transaction.find_status", contextualName = "dynamodb.get-transaction-status")
-    public Optional<TransactionSt
+    public Optional<TransactionStatus> findStatus(UUID correlationId) {
+        return findEntity(correlationId)
+                .map(e -> TransactionStatus.valueOf(e.getStatus()));
+    }
+
+    @Override
+    public Optional<String> findReason(UUID correlationId) {
+        return findEntity(correlationId).map(CardTransactionDdbEntity::getReason);
+    }
+
+    @Override
+    @Observed(name = "db.transaction.find_by_id", contextualName = "dynamodb.get-transaction")
+    public Optional<SagaPayload> findById(UUID correlationId) {
+        return findEntity(correlationId).map(CardTransactionDdbEntity::toDomain);
+    }
+
+    private Optional<CardTransactionDdbEntity> findEntity(UUID correlationId) {
+        return Optional.ofNullable(
+                transactionTable.getItem(r -> r.key(k -> k.partitionValue(correlationId.toString())))
+        );
+    }
+}

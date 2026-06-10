@@ -52,4 +52,20 @@ public class TransactionSagaWorkflowImpl implements TransactionSagaWorkflow {
             Workflow.getLogger(TransactionSagaWorkflowImpl.class)
                     .warn("Fraud analysis failed — applying degraded-mode fallback rules: {}", e.getMessage());
             fraudScore = activities.evaluateFraudFallback(payload);
-            usedFall
+            usedFallback = true;
+        }
+
+        if (fraudScore.exceedsThreshold(fraudThreshold)) {
+            String reason = usedFallback
+                    ? "Fraud analysis unavailable — transaction blocked by fallback policy"
+                    : "High fraud score: " + fraudScore.score();
+            activities.rejectTransaction(
+                    payload.transactionId(), payload.correlationId(),
+                    reason, payload.traceparent());
+            return;
+        }
+
+        activities.approveTransaction(
+                payload.transactionId(), payload.correlationId(), payload.traceparent());
+    }
+}

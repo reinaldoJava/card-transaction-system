@@ -75,4 +75,7 @@ public class TransactionEntity {
     public void setReason(String reason) { this.reason = reason; }
 
     public UUID getCorrelationId() { return correlationId; }
-    public void setCorrelationId(UUID 
+    public void setCorrelationId(UUID correlationId) { this.correlationId = correlationId; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+}

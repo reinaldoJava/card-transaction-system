@@ -90,4 +90,60 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
      *   4. Otherwise → REJECT (score 100)
      */
     @Override
-    public FraudScore evaluateFraudFallback(SagaPayload payload
+    public FraudScore evaluateFraudFallback(SagaPayload payload) {
+        log.warn("Fraud analysis unavailable — applying static fallback rules for correlationId={}",
+                payload.correlationId());
+
+        LocalTime now = LocalTime.now();
+        if (!now.isBefore(DAWN_START) && now.isBefore(DAWN_END)) {
+            log.warn("Fallback: BLOCK — madrugada window ({}) for correlationId={}", now, payload.correlationId());
+            return new FraudScore(100);
+        }
+
+        ClientProfile profile = clientProfilePort.findByCardToken(payload.cardToken())
+                .orElse(null);
+
+        if (profile != null && profile.vip() && payload.amount().compareTo(VIP_FALLBACK_LIMIT) <= 0) {
+            log.info("Fallback: PASS — VIP client, amount={} ≤ {} for correlationId={}",
+                    payload.amount(), VIP_FALLBACK_LIMIT, payload.correlationId());
+            return new FraudScore(0);
+        }
+
+        if ((profile == null || !profile.vip()) && payload.amount().compareTo(REGULAR_FALLBACK_LIMIT) <= 0) {
+            log.info("Fallback: PASS — regular client, amount={} ≤ {} for correlationId={}",
+                    payload.amount(), REGULAR_FALLBACK_LIMIT, payload.correlationId());
+            return new FraudScore(0);
+        }
+
+        log.warn("Fallback: BLOCK — no rule matched, amount={} for correlationId={}",
+                payload.amount(), payload.correlationId());
+        return new FraudScore(100);
+    }
+
+    @Override
+    public void approveTransaction(String transactionId, UUID correlationId, String traceparent) {
+        transactionRepository.updateStatus(correlationId, TransactionStatus.APPROVED);
+        TransactionResult result = TransactionResult.approved(correlationId);
+        idempotencyService.store(transactionId, result);
+        transactionRepository.findById(correlationId)
+                .map(p -> p.withTraceparent(traceparent))
+                .ifPresent(p -> {
+                    eventPublisher.publish(p);
+                    callbackNotifier.notify(p, result);
+                });
+    }
+
+    @Override
+    public void rejectTransaction(String transactionId, UUID correlationId, String reason, String traceparent) {
+        compensationUseCase.compensate(correlationId);
+        transactionRepository.updateStatusAndReason(correlationId, TransactionStatus.REJECTED, reason);
+        TransactionResult result = TransactionResult.rejected(correlationId, reason);
+        idempotencyService.store(transactionId, result);
+        transactionRepository.findById(correlationId)
+                .map(p -> p.withTraceparent(traceparent))
+                .ifPresent(p -> {
+                    eventPublisher.publish(p);
+                    callbackNotifier.notify(p, result);
+                });
+    }
+}

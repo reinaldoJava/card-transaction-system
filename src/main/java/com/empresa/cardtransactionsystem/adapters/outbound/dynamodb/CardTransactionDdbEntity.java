@@ -81,4 +81,9 @@ public class CardTransactionDdbEntity {
                 installments,
                 Brand.valueOf(brand),
                 TransactionStatus.valueOf(status),
-      
+                LocalDateTime.parse(createdAt, DateTimeFormatter.ISO_DATE_TIME),
+                null,
+                callbackUrl
+        );
+    }
+}

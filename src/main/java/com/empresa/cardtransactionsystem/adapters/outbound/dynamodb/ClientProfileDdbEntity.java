@@ -24,32 +24,17 @@ public class ClientProfileDdbEntity {
         this.cardToken = cardToken;
     }
 
-    public BigDecimal getCreditLimit() {
-        return creditLimit;
-    }
-
     public void setCreditLimit(BigDecimal creditLimit) {
         this.creditLimit = creditLimit;
-    }
-
-    public BigDecimal getUsedCredit() {
-        return usedCredit;
     }
 
     public void setUsedCredit(BigDecimal usedCredit) {
         this.usedCredit = usedCredit;
     }
 
-    public int getMaxInstallments() {
-        return maxInstallments;
-    }
 
     public void setMaxInstallments(int maxInstallments) {
         this.maxInstallments = maxInstallments;
-    }
-
-    public BigDecimal getMonthlyRate() {
-        return monthlyRate;
     }
 
     public void setMonthlyRate(BigDecimal monthlyRate) {
@@ -62,10 +47,4 @@ public class ClientProfileDdbEntity {
     public ClientProfile toDomain() {
         return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip);
     }
-
-    public static ClientProfileDdbEntity fromDomain(ClientProfile domain, String cardToken) {
-        ClientProfileDdbEntity entity = new ClientProfileDdbEntity();
-        entity.setCardToken(cardToken);
-        entity.setCreditLimit(domain.creditLimit());
-        entity.setUsedCredit(domain.usedCredit());
-        entity.
+}

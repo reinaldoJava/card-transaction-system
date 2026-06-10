@@ -25,4 +25,8 @@ public interface TransactionSagaActivities {
     FraudScore evaluateFraudFallback(SagaPayload payload);
 
     @ActivityMethod
-    void approveTransaction(String transactionId
+    void approveTransaction(String transactionId, UUID correlationId, String traceparent);
+
+    @ActivityMethod
+    void rejectTransaction(String transactionId, UUID correlationId, String reason, String traceparent);
+}
