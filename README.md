@@ -51,6 +51,7 @@ curl -X POST http://localhost:8080/auth/login \
   -d '{"username":"john","password":"secret"}'
 
 # 2) Iniciar transação → 202 + correlationId
+# locationCode é opcional — omitir para localização aleatória
 curl -X POST http://localhost:8080/process \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <JWT>" \
@@ -59,7 +60,8 @@ curl -X POST http://localhost:8080/process \
     "uuidTransaction": "550e8400-e29b-41d4-a716-446655440000",
     "cardDataRequest": { "number": "4111111111111111", "cvv": "123", "name": "John Doe", "brand": "VISA" },
     "amount": 500.00,
-    "installments": 3
+    "installments": 3,
+    "locationCode": "SAO_PAULO_CENTRO"
   }'
 
 # 3) Consultar status
@@ -86,7 +88,8 @@ curl http://localhost:8080/status/550e8400-e29b-41d4-a716-446655440000
   "uuidTransaction": "550e8400-e29b-41d4-a716-446655440000",
   "cardDataRequest": { "number": "4111111111111111", "cvv": "123", "name": "John Doe", "brand": "VISA" },
   "amount": 500.00,
-  "installments": 3
+  "installments": 3,
+  "locationCode": "SAO_PAULO_CENTRO"   // opcional — omitir para localização aleatória
 }
 // response 202 Accepted (TransactionInitiatedResponse)
 { "transactionId": "TXN-001", "correlationId": "550e8400-e29b-41d4-a716-446655440000" }
@@ -106,13 +109,64 @@ Cada function é embrulhada por um wrapper que faz **force flush** de traces e m
 
 ---
 
+## Geolocalização de Transações
+
+### Como funciona
+
+Cada transação pode indicar de onde ela está sendo feita via o campo `locationCode` (string). O sistema mantém uma **tabela-verdade** de 52 locais fictícios em `src/main/resources/geo/test-locations.json`, carregada em memória na inicialização via `GeoLocationRegistry` — **zero custo de infra, zero chamada de API**.
+
+**Fluxo:**
+1. Se `locationCode` for enviado e existir na tabela → usa esse local.
+2. Se `locationCode` for omitido (ou `null`) → o sistema sorteia um local aleatório da tabela, tornando os testes mais realistas.
+3. O `locationCode` é persistido na transação (Postgres e DynamoDB).
+
+### Análise de fraude geográfica
+
+O local da transação **e** o local de residência do cliente (campo `homeLocationCode` no perfil, ex: `SAO_PAULO_CENTRO`) são enviados à IA com nomes legíveis por humano:
+
+```
+transaction_location: Polo Norte, Ártico (lat=90.0000, lon=0.0000) — NOTE: região inabitada, fisicamente impossível
+home_location: São Paulo - Centro, Brasil (lat=-23.5505, lon=-46.6333)
+```
+
+A IA (Bedrock/Claude ou Ollama/Mistral) **raciocina** sobre a plausibilidade geográfica, aplicando penalidades crescentes:
+
+| Situação | Penalidade |
+|---|---|
+| Local fisicamente impossível (Polo Norte, meio do oceano) | +40 pts |
+| País muito distante do cadastro (São Paulo → Tóquio) | +30 pts |
+| Continente diferente (São Paulo → Londres) | +20 pts |
+| País vizinho (São Paulo → Buenos Aires) | +10 pts |
+| Mesma cidade / região próxima | −10 pts |
+
+No **modo fallback** (sem IA disponível), o `GeoDistanceCalculator` aplica Haversine: distância > 8.000 km → bloqueio automático (score 100).
+
+### Locais disponíveis (exemplos)
+
+| Código | Cidade | País |
+|---|---|---|
+| `SAO_PAULO_CENTRO` | São Paulo - Centro | Brasil |
+| `SAO_PAULO_VILA_OLIMPIA` | São Paulo - Vila Olímpia | Brasil |
+| `RIO_DE_JANEIRO` | Rio de Janeiro | Brasil |
+| `BUENOS_AIRES` | Buenos Aires | Argentina |
+| `NEW_YORK` | Nova York | EUA |
+| `LONDON` | Londres | Reino Unido |
+| `TOKYO` | Tóquio | Japão |
+| `NORTH_POLE` | Polo Norte | Ártico |
+| `ATLANTIC_OCEAN_MID` | Meio do Atlântico | — |
+
+Lista completa em `src/main/resources/geo/test-locations.json`.
+
+---
+
 ## Estrutura (Hexagonal + DDD)
 
 ```
 src/main/java/com/empresa/cardtransactionsystem/
 ├── domain/                         # núcleo puro (sem frameworks)
-│   ├── model/                      # Value Objects + agregados (SagaPayload, CardToken, FraudScore...)
-│   ├── service/                    # CardValidationService (registrado como bean em DomainConfig)
+│   ├── model/                      # Value Objects + agregados (SagaPayload, CardToken, FraudScore,
+│   │                               #   GeoLocation, GeoRiskLevel...)
+│   ├── service/                    # CardValidationService, GeoLocationRegistry, GeoDistanceCalculator
 │   └── ports/{input,output}/       # interfaces (use cases / saídas)
 ├── application/
 │   ├── orchestrator/               # TransactionOrchestrator (único; assíncrono via SagaStarterPort)
@@ -125,10 +179,13 @@ src/main/java/com/empresa/cardtransactionsystem/
 │   └── outbound/
 │       ├── dynamodb/               # adapters DynamoDB (instância única)
 │       ├── saga/                   # StepFunctionsSagaStarterAdapter
-│       ├── bedrock/ · ollama/      # FraudAnalysisPort (feature flag)
+│       ├── bedrock/ · ollama/      # FraudAnalysisPort (feature flag; ambos recebem geo context)
 │       ├── lambda/                 # JwtGenerator, token exchange
 │       └── observability/          # TraceparentExtractor, TransactionMetrics, FlushableOtlpMeterRegistry
 └── config/                         # DynamoDB, SQS(local), SFN, SSM, Security, Observability (Local/Prod)
+
+src/main/resources/
+└── geo/test-locations.json         # 52 locais fictícios (carregados em memória na inicialização)
 ```
 
 ### Padrões
@@ -161,7 +218,7 @@ src/main/java/com/empresa/cardtransactionsystem/
 
 ## Observability
 
-Instrumentação única com **OpenTelemetry via Micrometer Observation** (sem javaagent, substitui o antigo AspectJ). O backend é só configuração por profile:
+Instrumentação única com **OpenTelemetry via Micrometer Observation** (sem javaagent). O backend é só configuração por profile:
 
 - **Local (`local`):** `LoggingSpanExporter` (console) por padrão; Jaeger opt-in (`management.otlp.tracing.endpoint`). Zero custo, offline.
 - **AWS (`!local`):** OTLP → New Relic (`otlp.nr-data.net`), `api-key` lida do **SSM**. Traces + métricas, com dashboard e 4 alertas provisionados via `newrelic.tf`.
@@ -217,7 +274,7 @@ Cuidados: não colocar Lambda em VPC com NAT Gateway; manter log em `INFO`; apli
 ./mvnw clean package -DskipTests
 ```
 
-**Checklist antes de commitar:** `./mvnw clean test` verde · domínio sem anotações Spring · adapters não vazam para o domínio · sem comentários desnecessários (Clean Code, ver [`CLAUDE.md`](AGENTS.md)).
+**Checklist antes de commitar:** `./mvnw clean test` verde · domínio sem anotações Spring · adapters não vazam para o domínio · sem comentários desnecessários (Clean Code, ver [`CLAUDE.md`](CLAUDE.md)).
 
 ---
 
@@ -268,7 +325,7 @@ TOKEN=$(curl -s -X POST http://localhost:8080/auth/login \
 
 ### Cenário 1 — Caminho feliz (APROVADO)
 
-Cartão VISA `4111 1111 1111 1111` · limite R$ 10.000 · sem uso · R$ 500 em 3x
+Cartão VISA `4111 1111 1111 1111` · limite R$ 10.000 · sem uso · R$ 500 em 3x · localização: São Paulo Centro (mesmo local do cadastro → sem risco geo)
 
 ```bash
 CORR=$(curl -s -X POST http://localhost:8080/process \
@@ -285,11 +342,38 @@ CORR=$(curl -s -X POST http://localhost:8080/process \
     },
     "amount": 500.00,
     "installments": 3,
+    "locationCode": "SAO_PAULO_CENTRO",
     "callbackUrl": null
   }' | jq -r '.correlationId')
 
 curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
 # Resultado esperado: "status": "APPROVED"
+```
+
+---
+
+### Cenário 1b — Caminho feliz com localização aleatória
+
+Omitir `locationCode` faz o sistema sortear um local da tabela-verdade — útil para testes de variação.
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-happy-002",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000011",
+    "cardDataRequest": {
+      "number": "4111111111111111",
+      "cvv": "123",
+      "brand": "VISA",
+      "name": "JOAO DA SILVA"
+    },
+    "amount": 150.00,
+    "installments": 1
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
 ```
 
 ---
@@ -313,6 +397,7 @@ CORR=$(curl -s -X POST http://localhost:8080/process \
     },
     "amount": 200.00,
     "installments": 1,
+    "locationCode": "RIO_DE_JANEIRO",
     "callbackUrl": null
   }' | jq -r '.correlationId')
 
@@ -322,7 +407,7 @@ curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" |
 
 ---
 
-### Cenário 3 — Bloqueada pelo anti-fraude
+### Cenário 3 — Bloqueada pelo anti-fraude (score Redis)
 
 Cartão VISA `4000 0000 0000 0002` · crédito OK · score de fraude 95 em cache Redis (seedado automaticamente)
 
@@ -341,11 +426,70 @@ CORR=$(curl -s -X POST http://localhost:8080/process \
     },
     "amount": 100.00,
     "installments": 1,
+    "locationCode": "SAO_PAULO_CENTRO",
     "callbackUrl": null
   }' | jq -r '.correlationId')
 
 curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
 # Resultado esperado: "status": "REJECTED" (fraud score 95 >= threshold 80)
+```
+
+---
+
+### Cenário 4 — Fraude geográfica (São Paulo → Polo Norte)
+
+Cliente cadastrado em São Paulo tenta transação vinda do Polo Norte — a IA deve atribuir penalidade máxima (+40 pts) por localização fisicamente impossível.
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-geo-fraud-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000004",
+    "cardDataRequest": {
+      "number": "4111111111111111",
+      "cvv": "123",
+      "brand": "VISA",
+      "name": "JOAO DA SILVA"
+    },
+    "amount": 300.00,
+    "installments": 1,
+    "locationCode": "NORTH_POLE",
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Resultado esperado: "status": "REJECTED" (geo impossível → score muito alto)
+```
+
+---
+
+### Cenário 5 — Risco geo elevado (São Paulo → Londres)
+
+Continentes diferentes geram penalidade +20 pts; combinado com outros sinais pode rejeitar.
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-geo-international-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000005",
+    "cardDataRequest": {
+      "number": "4111111111111111",
+      "cvv": "123",
+      "brand": "VISA",
+      "name": "JOAO DA SILVA"
+    },
+    "amount": 1500.00,
+    "installments": 6,
+    "locationCode": "LONDON",
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Geo: São Paulo → Londres (+20 pts) + valor alto + muitas parcelas
 ```
 
 ---
@@ -377,5 +521,5 @@ aws dynamodb delete-table --table-name card-transactions --endpoint-url http://l
 
 ---
 
-**Última atualização:** 2026-06-10 · **Versão:** 0.0.1-SNAPSHOT · **Status:** arquitetura assíncrona + observability implementadas (108 testes verdes)
+**Última atualização:** 2026-06-10 · **Versão:** 0.0.1-SNAPSHOT · **Status:** arquitetura assíncrona + observability + geolocalização AI-driven implementadas
 **Contato:** reinaldo.java@gmail.com · **Licença:** MIT

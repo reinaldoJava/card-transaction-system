@@ -7,9 +7,9 @@ public record ClientProfile(
         BigDecimal usedCredit,
         int maxInstallments,
         BigDecimal monthlyRate,
-        boolean vip
+        boolean vip,
+        String homeLocationCode
 ) {
-
     public BigDecimal availableCredit() {
         return creditLimit.subtract(usedCredit);
     }

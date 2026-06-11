@@ -7,7 +7,11 @@ import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
+import com.empresa.cardtransactionsystem.domain.model.GeoLocation;
+import com.empresa.cardtransactionsystem.domain.model.GeoRiskLevel;
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
+import com.empresa.cardtransactionsystem.domain.service.GeoDistanceCalculator;
+import com.empresa.cardtransactionsystem.domain.service.GeoLocationRegistry;
 import com.empresa.cardtransactionsystem.domain.ports.input.CompensationUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateBusinessRulesUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.ValidateTransactionUseCase;
@@ -45,6 +49,7 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
     private final CallbackNotifierPort callbackNotifier;
     private final IdempotencyService idempotencyService;
     private final ClientProfilePort clientProfilePort;
+    private final GeoLocationRegistry geoLocationRegistry;
 
     public TransactionSagaActivitiesImpl(
             ValidateTransactionUseCase validateTransactionUseCase,
@@ -55,7 +60,8 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
             DomainEventPublisherPort eventPublisher,
             CallbackNotifierPort callbackNotifier,
             IdempotencyService idempotencyService,
-            ClientProfilePort clientProfilePort) {
+            ClientProfilePort clientProfilePort,
+            GeoLocationRegistry geoLocationRegistry) {
         this.validateTransactionUseCase = validateTransactionUseCase;
         this.validateBusinessRulesUseCase = validateBusinessRulesUseCase;
         this.analyzeFraudUseCase = analyzeFraudUseCase;
@@ -65,6 +71,7 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
         this.callbackNotifier = callbackNotifier;
         this.idempotencyService = idempotencyService;
         this.clientProfilePort = clientProfilePort;
+        this.geoLocationRegistry = geoLocationRegistry;
     }
 
     @Override
@@ -93,6 +100,21 @@ public class TransactionSagaActivitiesImpl implements TransactionSagaActivities 
     public FraudScore evaluateFraudFallback(SagaPayload payload) {
         log.warn("Fraud analysis unavailable — applying static fallback rules for correlationId={}",
                 payload.correlationId());
+
+        if (payload.locationCode() != null) {
+            GeoLocation txLocation = geoLocationRegistry.findByCode(payload.locationCode()).orElse(null);
+            ClientProfile profileForGeo = clientProfilePort.findByCardToken(payload.cardToken()).orElse(null);
+            GeoLocation homeLocation = (profileForGeo != null && profileForGeo.homeLocationCode() != null)
+                    ? geoLocationRegistry.findByCode(profileForGeo.homeLocationCode()).orElse(null)
+                    : null;
+            if (txLocation != null && homeLocation != null) {
+                GeoRiskLevel geoRisk = GeoDistanceCalculator.riskLevel(homeLocation, txLocation);
+                if (geoRisk == GeoRiskLevel.EXTREME) {
+                    log.warn("Fallback: BLOCK — EXTREME geo distance for correlationId={}", payload.correlationId());
+                    return new FraudScore(100);
+                }
+            }
+        }
 
         LocalTime now = LocalTime.now();
         if (!now.isBefore(DAWN_START) && now.isBefore(DAWN_END)) {

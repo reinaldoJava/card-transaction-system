@@ -12,6 +12,7 @@ import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublishe
 import com.empresa.cardtransactionsystem.domain.ports.output.SagaStarterPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import com.empresa.cardtransactionsystem.domain.service.CardValidationService;
+import com.empresa.cardtransactionsystem.domain.service.GeoLocationRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ public class TransactionOrchestrator {
     private final CallbackNotifierPort callbackNotifier;
     private final TraceparentExtractor traceparentExtractor;
     private final TransactionMetrics metrics;
+    private final GeoLocationRegistry geoLocationRegistry;
     private final int fraudScoreThreshold;
     private final CardDataMapper cardDataMapper;
 
@@ -43,7 +45,9 @@ public class TransactionOrchestrator {
             CallbackNotifierPort callbackNotifier,
             TraceparentExtractor traceparentExtractor,
             TransactionMetrics metrics,
-            @Value("${fraud.agent.threshold:80}") int fraudScoreThreshold, CardDataMapper cardDataMapper) {
+            GeoLocationRegistry geoLocationRegistry,
+            @Value("${fraud.agent.threshold:80}") int fraudScoreThreshold,
+            CardDataMapper cardDataMapper) {
         this.sagaStarterPort = sagaStarterPort;
         this.transactionRepository = transactionRepository;
         this.cardValidationService = cardValidationService;
@@ -53,6 +57,7 @@ public class TransactionOrchestrator {
         this.callbackNotifier = callbackNotifier;
         this.traceparentExtractor = traceparentExtractor;
         this.metrics = metrics;
+        this.geoLocationRegistry = geoLocationRegistry;
         this.fraudScoreThreshold = fraudScoreThreshold;
         this.cardDataMapper = cardDataMapper;
     }
@@ -66,6 +71,7 @@ public class TransactionOrchestrator {
         CardData cardData = cardDataMapper.toDomain(request.cardDataRequest());
         CardToken cardToken = cardValidationService.tokenize(cardData);
         String callbackUrl = request.callbackUrl();
+        String locationCode = resolveLocationCode(request.locationCode());
 
         Optional<FraudScore> highFraudScore = cachePort.getFraudScore(cardToken)
                 .filter(score -> score.exceedsThreshold(fraudScoreThreshold));
@@ -73,7 +79,8 @@ public class TransactionOrchestrator {
         if (highFraudScore.isPresent()) {
             SagaPayload rejected = SagaPayload.rejected(
                     request.transactionId(), request.uuidTransaction(),
-                    cardToken, request.amount(), request.installments(), cardData.brand(), callbackUrl);
+                    cardToken, request.amount(), request.installments(), cardData.brand(), callbackUrl)
+                    .withLocationCode(locationCode);
             transactionRepository.save(rejected);
             eventPublisher.publish(rejected);
             TransactionResult result = TransactionResult.rejected(request.uuidTransaction(),
@@ -87,12 +94,22 @@ public class TransactionOrchestrator {
         SagaPayload payload = SagaPayload.pending(
                 request.transactionId(), request.uuidTransaction(),
                 cardToken, request.amount(), request.installments(), cardData.brand(), callbackUrl)
-                .withTraceparent(traceparentExtractor.extract());
+                .withTraceparent(traceparentExtractor.extract())
+                .withLocationCode(locationCode);
 
         transactionRepository.save(payload);
         sagaStarterPort.start(payload);
         eventPublisher.publish(payload);
         metrics.recordSubmitted();
         return payload.correlationId();
+    }
+
+    private String resolveLocationCode(String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return geoLocationRegistry.findByCode(requested)
+                    .map(GeoLocation::code)
+                    .orElse(requested);
+        }
+        return geoLocationRegistry.random().code();
     }
 }

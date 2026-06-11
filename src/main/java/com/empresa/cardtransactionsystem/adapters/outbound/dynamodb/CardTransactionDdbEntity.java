@@ -25,6 +25,7 @@ public class CardTransactionDdbEntity {
     private String createdAt;
     private String callbackUrl;
     private String reason;
+    private String locationCode;
 
     @DynamoDbPartitionKey
     public String getUuidTransaction() { return uuidTransaction; }
@@ -58,18 +59,22 @@ public class CardTransactionDdbEntity {
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
 
+    public String getLocationCode() { return locationCode; }
+    public void setLocationCode(String locationCode) { this.locationCode = locationCode; }
+
     public static CardTransactionDdbEntity from(SagaPayload payload) {
-        CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
-        entity.setUuidTransaction(payload.correlationId().toString());
-        entity.setTransactionId(payload.transactionId());
-        entity.setCardToken(payload.cardToken().value());
-        entity.setAmount(payload.amount());
-        entity.setInstallments(payload.installments());
-        entity.setBrand(payload.brand().name());
-        entity.setStatus(payload.status().name());
-        entity.setCreatedAt(payload.createdAt().format(DateTimeFormatter.ISO_DATE_TIME));
-        entity.setCallbackUrl(payload.callbackUrl());
-        return entity;
+        CardTransactionDdbEntity e = new CardTransactionDdbEntity();
+        e.setUuidTransaction(payload.correlationId().toString());
+        e.setTransactionId(payload.transactionId());
+        e.setCardToken(payload.cardToken().value());
+        e.setAmount(payload.amount());
+        e.setInstallments(payload.installments());
+        e.setBrand(payload.brand().name());
+        e.setStatus(payload.status().name());
+        e.setCreatedAt(payload.createdAt().format(DateTimeFormatter.ISO_DATE_TIME));
+        e.setCallbackUrl(payload.callbackUrl());
+        e.setLocationCode(payload.locationCode());
+        return e;
     }
 
     public SagaPayload toDomain() {
@@ -77,13 +82,10 @@ public class CardTransactionDdbEntity {
                 transactionId,
                 UUID.fromString(uuidTransaction),
                 new CardToken(cardToken),
-                amount,
-                installments,
+                amount, installments,
                 Brand.valueOf(brand),
                 TransactionStatus.valueOf(status),
                 LocalDateTime.parse(createdAt, DateTimeFormatter.ISO_DATE_TIME),
-                null,
-                callbackUrl
-        );
+                null, callbackUrl, locationCode);
     }
 }

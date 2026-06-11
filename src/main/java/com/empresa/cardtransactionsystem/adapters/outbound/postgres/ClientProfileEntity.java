@@ -31,6 +31,9 @@ public class ClientProfileEntity {
     @Column(name = "vip", nullable = false)
     private boolean vip;
 
+    @Column(name = "home_location_code")
+    private String homeLocationCode;
+
     public static ClientProfileEntity from(ClientProfile profile, String cardToken) {
         ClientProfileEntity e = new ClientProfileEntity();
         e.cardToken = cardToken;
@@ -39,11 +42,12 @@ public class ClientProfileEntity {
         e.maxInstallments = profile.maxInstallments();
         e.monthlyRate = profile.monthlyRate();
         e.vip = profile.vip();
+        e.homeLocationCode = profile.homeLocationCode();
         return e;
     }
 
     public ClientProfile toDomain() {
-        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip);
+        return new ClientProfile(creditLimit, usedCredit, maxInstallments, monthlyRate, vip, homeLocationCode);
     }
 
     public String getCardToken() { return cardToken; }

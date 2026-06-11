@@ -14,7 +14,8 @@ public record SagaPayload(
         TransactionStatus status,
         LocalDateTime createdAt,
         String traceparent,
-        String callbackUrl
+        String callbackUrl,
+        String locationCode
 ) {
     public static SagaPayload pending(
             String transactionId, UUID correlationId, CardToken cardToken,
@@ -22,7 +23,7 @@ public record SagaPayload(
         return new SagaPayload(
                 transactionId, correlationId, cardToken,
                 amount, installments, brand,
-                TransactionStatus.PENDING, LocalDateTime.now(), null, callbackUrl);
+                TransactionStatus.PENDING, LocalDateTime.now(), null, callbackUrl, null);
     }
 
     public static SagaPayload rejected(
@@ -31,11 +32,16 @@ public record SagaPayload(
         return new SagaPayload(
                 transactionId, correlationId, cardToken,
                 amount, installments, brand,
-                TransactionStatus.REJECTED, LocalDateTime.now(), null, callbackUrl);
+                TransactionStatus.REJECTED, LocalDateTime.now(), null, callbackUrl, null);
     }
 
     public SagaPayload withTraceparent(String traceparent) {
         return new SagaPayload(transactionId, correlationId, cardToken,
-                amount, installments, brand, status, createdAt, traceparent, callbackUrl);
+                amount, installments, brand, status, createdAt, traceparent, callbackUrl, locationCode);
+    }
+
+    public SagaPayload withLocationCode(String locationCode) {
+        return new SagaPayload(transactionId, correlationId, cardToken,
+                amount, installments, brand, status, createdAt, traceparent, callbackUrl, locationCode);
     }
 }

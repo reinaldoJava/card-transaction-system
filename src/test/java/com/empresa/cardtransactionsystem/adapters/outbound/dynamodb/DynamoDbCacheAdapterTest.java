@@ -1,27 +1,15 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
-import com.empresa.cardtransactionsystem.domain.model.CardToken;
-import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
-import com.empresa.cardtransactionsystem.domain.model.FraudScore;
-import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
-import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.domain.model.*;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
-import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
-import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition;
-import software.amazon.awssdk.services.dynamodb.model.BillingMode;
-import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest;
-import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement;
-import software.amazon.awssdk.services.dynamodb.model.KeyType;
-import software.amazon.awssdk.services.dynamodb.model.ScalarAttributeType;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
+import software.amazon.awssdk.services.dynamodb.model.*;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -86,7 +74,7 @@ class DynamoDbCacheAdapterTest {
                 24,
                 new BigDecimal("0.01"),
                 false
-        );
+        , null);
 
         adapter.putClientProfile(cardToken, profile);
         Optional<ClientProfile> retrieved = adapter.getClientProfile(cardToken);

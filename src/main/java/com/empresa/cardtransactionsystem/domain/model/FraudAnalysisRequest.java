@@ -6,14 +6,16 @@ public record FraudAnalysisRequest(
         CardToken cardToken,
         BigDecimal amount,
         int installments,
-        Brand brand
+        Brand brand,
+        String locationCode
 ) {
     public static FraudAnalysisRequest from(SagaPayload payload) {
         return new FraudAnalysisRequest(
                 payload.cardToken(),
                 payload.amount(),
                 payload.installments(),
-                payload.brand()
+                payload.brand(),
+                payload.locationCode()
         );
     }
 }

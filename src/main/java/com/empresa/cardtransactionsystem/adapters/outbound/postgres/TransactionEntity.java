@@ -48,17 +48,21 @@ public class TransactionEntity {
     @Column(name = "reason")
     private String reason;
 
+    @Column(name = "location_code")
+    private String locationCode;
+
     public static TransactionEntity from(SagaPayload payload) {
         TransactionEntity e = new TransactionEntity();
-        e.correlationId = payload.correlationId();
-        e.transactionId = payload.transactionId();
-        e.cardToken = payload.cardToken().value();
-        e.amount = payload.amount();
-        e.installments = payload.installments();
-        e.brand = payload.brand().name();
-        e.status = payload.status().name();
-        e.createdAt = payload.createdAt();
-        e.callbackUrl = payload.callbackUrl();
+        e.correlationId  = payload.correlationId();
+        e.transactionId  = payload.transactionId();
+        e.cardToken      = payload.cardToken().value();
+        e.amount         = payload.amount();
+        e.installments   = payload.installments();
+        e.brand          = payload.brand().name();
+        e.status         = payload.status().name();
+        e.createdAt      = payload.createdAt();
+        e.callbackUrl    = payload.callbackUrl();
+        e.locationCode   = payload.locationCode();
         return e;
     }
 
@@ -67,15 +71,14 @@ public class TransactionEntity {
                 transactionId, correlationId,
                 new CardToken(cardToken), amount, installments,
                 Brand.valueOf(brand), TransactionStatus.valueOf(status),
-                createdAt, null, callbackUrl);
+                createdAt, null, callbackUrl, locationCode);
     }
 
-    public String getCallbackUrl() { return callbackUrl; }
-    public String getReason() { return reason; }
+    public String getCallbackUrl()  { return callbackUrl; }
+    public String getReason()       { return reason; }
     public void setReason(String reason) { this.reason = reason; }
-
-    public UUID getCorrelationId() { return correlationId; }
+    public UUID getCorrelationId()  { return correlationId; }
     public void setCorrelationId(UUID correlationId) { this.correlationId = correlationId; }
-    public String getStatus() { return status; }
+    public String getStatus()       { return status; }
     public void setStatus(String status) { this.status = status; }
 }

@@ -30,5 +30,7 @@ public record CardTransactionRequest(
         @Max(value = 24, message = "Installments cannot exceed 24")
         int installments,
 
-        String callbackUrl
+        String callbackUrl,
+
+        String locationCode
 ) {}
