@@ -33,7 +33,7 @@ domain/ports/output/CachePort  ◄── DynamoDbCacheAdapter        (AWS / atua
 | Orquestração da saga | `SagaStarterPort` | Step Functions | **Temporal** (durable workflow) | médio — adapter + workers |
 | Fraude | `FraudAnalysisPort` | Bedrock | **Ollama** (já existe) | zero |
 | Busca / auditoria | `AuditSearchPort` | NoOp | **PostgreSQL** (`PostgresAuditAdapter`) | implementado |
-| Observability | OTel (Micrometer) | New Relic | **OTel Collector + Grafana (Tempo/Prometheus/Loki)** ou Jaeger | baixo — config |
+| Observability | OTel (Micrometer) | New Relic | **`grafana/otel-lgtm`** (Tempo/Prometheus/Loki + Grafana :3000) | baixo — config |
 
 A coluna "esforço" é sempre **adapter + config**. O core não muda.
 
@@ -57,10 +57,13 @@ A coluna "esforço" é sempre **adapter + config**. O core não muda.
 - **PostgreSQL (audit):** auditoria e busca de transações via `PostgresAuditAdapter` (profile
   `ledger-postgres`) — mesma base ACID do ledger, sem dependência adicional. No perfil `aws`
   (`ledger-dynamodb`) usa `NoOpAuditAdapter`.
-- **Grafana stack (observability):** localmente, em vez de mandar OTLP para o New Relic, aponta-se
-  o exporter para um **OTel Collector** → Tempo (traces) + Prometheus (métricas) + Loki (logs),
-  tudo visualizado no Grafana. Mesmo código instrumentado, só muda o destino (já previsto no
-  `LocalObservabilityConfig`).
+- **Grafana otel-lgtm (observability):** localmente, em vez de mandar OTLP para o New Relic, aponta-se
+  o exporter para a imagem **`grafana/otel-lgtm`** — um "tudo-em-um" (OTel Collector + Tempo=traces +
+  Prometheus=métricas + Loki=logs + Grafana), com datasources já provisionados. **Grafana em
+  `http://localhost:3000`**. Mesmo código instrumentado, só muda o destino (`LocalObservabilityConfig`
+  + `management.otlp.*` no `application-local-rich.yml`).
+- **Resiliência da IA:** circuit breaker (Resilience4j) + timeout no `RestTemplate` no adapter Ollama
+  (e Bedrock) — provedor fora → breaker abre, `WARN` e a saga aplica as regras de degrade.
 
 ---
 
@@ -184,7 +187,8 @@ services:
     image: ollama/ollama
     ports: ["11434:11434"]
 
-  otel-collector + grafana + tempo + prometheus + loki   # observability local
+  otel-lgtm:    # grafana/otel-lgtm — OTel Collector + Tempo + Prometheus + Loki + Grafana (:3000)
+    image: grafana/otel-lgtm
 ```
 
 ---

@@ -1,4 +1,4 @@
-package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
+package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity;
 
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbPartitionKey;
@@ -31,6 +31,13 @@ public class CacheDdbEntity {
     }
 
     public void setExpiresAt(long expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+
+    public CacheDdbEntity(String cacheKey, String value, long expiresAt) {
+        this.cacheKey = cacheKey;
+        this.value = value;
         this.expiresAt = expiresAt;
     }
 }

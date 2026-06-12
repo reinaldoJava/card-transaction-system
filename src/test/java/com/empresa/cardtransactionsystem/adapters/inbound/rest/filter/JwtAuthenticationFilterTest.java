@@ -1,4 +1,4 @@
-package com.empresa.cardtransactionsystem.adapters.inbound.rest;
+package com.empresa.cardtransactionsystem.adapters.inbound.rest.filter;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

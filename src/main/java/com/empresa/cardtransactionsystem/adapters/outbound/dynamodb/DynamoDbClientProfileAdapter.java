@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.ClientProfileDdbEntity;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
 import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;

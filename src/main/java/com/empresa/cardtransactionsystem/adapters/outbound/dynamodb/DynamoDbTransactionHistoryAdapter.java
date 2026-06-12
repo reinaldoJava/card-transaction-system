@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.CardTransactionDdbEntity;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.TransactionHistory;
 import com.empresa.cardtransactionsystem.domain.model.TransactionSummary;

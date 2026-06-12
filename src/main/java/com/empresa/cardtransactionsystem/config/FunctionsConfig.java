@@ -1,5 +1,6 @@
-package com.empresa.cardtransactionsystem.adapters.inbound.function;
+package com.empresa.cardtransactionsystem.config;
 
+import com.empresa.cardtransactionsystem.adapters.inbound.function.FraudResult;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardTransactionRequest;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.JwtResponse;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.LoginRequest;

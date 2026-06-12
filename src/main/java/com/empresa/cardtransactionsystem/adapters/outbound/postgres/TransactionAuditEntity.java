@@ -65,7 +65,7 @@ public class TransactionAuditEntity {
                 transactionId, correlationId,
                 new CardToken(cardToken), amount, installments,
                 Brand.valueOf(brand), TransactionStatus.valueOf(status),
-                createdAt, null, null);
+                createdAt, null, null,null);
     }
 
     public UUID getCorrelationId() { return correlationId; }

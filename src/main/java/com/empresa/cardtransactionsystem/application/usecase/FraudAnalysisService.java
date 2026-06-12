@@ -1,6 +1,6 @@
 package com.empresa.cardtransactionsystem.application.usecase;
 
-import com.empresa.cardtransactionsystem.domain.model.FraudAnalysisRequest;
+import com.empresa.cardtransactionsystem.domain.model.FraudCandidate;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
@@ -22,7 +22,7 @@ public class FraudAnalysisService implements AnalyzeFraudUseCase {
     @Override
     public FraudScore analyze(SagaPayload payload) {
         return cachePort.getFraudScore(payload.cardToken()).orElseGet(() -> {
-            FraudScore score = fraudAnalysisPort.analyze(FraudAnalysisRequest.from(payload));
+            FraudScore score = fraudAnalysisPort.analyze(FraudCandidate.from(payload));
             cachePort.putFraudScore(payload.cardToken(), score);
             return score;
         });

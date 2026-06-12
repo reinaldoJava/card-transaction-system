@@ -1,4 +1,4 @@
-package com.empresa.cardtransactionsystem.adapters.inbound.rest;
+package com.empresa.cardtransactionsystem.adapters.inbound.rest.handler;
 
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.ErrorResponse;
 import com.empresa.cardtransactionsystem.domain.exception.UnauthorizedException;

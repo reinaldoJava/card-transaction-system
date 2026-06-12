@@ -1,11 +1,7 @@
 package com.empresa.cardtransactionsystem.application.usecase;
 
-import com.empresa.cardtransactionsystem.domain.model.Brand;
-import com.empresa.cardtransactionsystem.domain.model.CardToken;
-import com.empresa.cardtransactionsystem.domain.model.FraudAnalysisRequest;
-import com.empresa.cardtransactionsystem.domain.model.FraudScore;
-import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
-import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.domain.model.*;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.FraudAnalysisPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +12,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -56,7 +50,7 @@ class FraudAnalysisServiceTest {
     void shouldPassCorrectRequestToBedrock() {
         when(fraudAnalysisPort.analyze(any())).thenReturn(FraudScore.of(10));
         service.analyze(payload());
-        var captor = ArgumentCaptor.forClass(FraudAnalysisRequest.class);
+        var captor = ArgumentCaptor.forClass(FraudCandidate.class);
         verify(fraudAnalysisPort).analyze(captor.capture());
         assertThat(captor.getValue().cardToken()).isEqualTo(TOKEN);
         assertThat(captor.getValue().amount()).isEqualByComparingTo("500.00");
@@ -81,8 +75,6 @@ class FraudAnalysisServiceTest {
     }
 
     private SagaPayload payload() {
-        return new SagaPayload("TXN-001", UUID.randomUUID(), TOKEN,
-                new BigDecimal("500.00"), 3, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
+        return SagaPayloadFixture.withCardToken(TOKEN);
     }
 }

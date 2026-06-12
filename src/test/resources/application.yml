@@ -1,8 +1,0 @@
-security:
-  jwt:
-    filter:
-      enabled: false
-
-jwt:
-  secret: test-secret-key-for-unit-tests-only-32b
-  expiration-hours: 24

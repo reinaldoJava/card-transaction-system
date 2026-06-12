@@ -8,7 +8,7 @@
 body{background:#0d1117;font-family:'Segoe UI',Arial,sans-serif;color:#cdd9e5;padding:16px;overflow-x:auto}
 h1{text-align:center;font-size:15px;font-weight:400;letter-spacing:3px;text-transform:uppercase;margin-bottom:3px}
 .sub{text-align:center;color:#636e7b;font-size:10.5px;margin-bottom:14px}
-#cv{position:relative;width:1400px;height:1040px;margin:0 auto}
+#cv{position:relative;width:1400px;height:1130px;margin:0 auto}
 .bx{position:absolute;border-radius:5px;padding:6px 9px;line-height:1.32;z-index:10;box-shadow:0 4px 6px rgba(0,0,0,0.3)}
 .bt{font-weight:700;font-size:11px;margin-bottom:1px}
 .tech{font-size:9px;opacity:.6;font-style:italic}
@@ -53,7 +53,7 @@ path{stroke-linecap:square}
 </head>
 <body>
 <h1>C4 Container Diagram — Card Transaction System</h1>
-<div class="sub">Diferencial: validação de transação por IA (Bedrock/Ollama) · Java 25 · Spring Boot 4 · Hexagonal + DDD · Saga assíncrona · Kafka local → auditoria Postgres · ⭐ núcleo = decisão por IA · ⚠ vermelho = simplificação na conta atual (custo zero)</div>
+<div class="sub">Diferencial: validação de transação por IA (Bedrock/Ollama) · geolocalização AI-driven (home vs. tx) · Java 25 · Spring Boot 4 · Hexagonal + DDD · Saga assíncrona · Kafka local → auditoria Postgres · ⭐ núcleo = decisão por IA · ⚠ vermelho = simplificação na conta atual (custo zero)</div>
 <div id="cv">
 
 <!-- Cliente -->
@@ -127,35 +127,44 @@ path{stroke-linecap:square}
 </div>
 
 <!-- AI engine (Bedrock/Ollama) -->
-<div class="bx cai" style="left:1010px;top:540px;width:350px;height:96px">
+<div class="bx cai" style="left:1010px;top:505px;width:350px;height:112px">
   <div class="bt">&#11088; Amazon Bedrock / Ollama</div>
-  <div class="tech">[LLM · Converse API · fraud agent]</div>
-  <div class="desc">get_client_history · get_merchant_profile</div>
-  <div class="star">prod: Bedrock · local: Ollama (zero custo)</div>
+  <div class="tech">[LLM · Converse API · fraud agent · tools]</div>
+  <div class="desc">get_client_history · get_merchant_profile<br>compute_risk_signals · get_geo_context</div>
+  <div class="star">raciocina: home vs. tx location · score geo-aware</div>
+  <div class="note">prod: Bedrock · local: Ollama (zero custo)</div>
+  <div class="warn">circuit breaker (Resilience4j) → fallback de regras</div>
+</div>
+
+<!-- GeoLocationRegistry (in-memory domain service) -->
+<div class="bx csa" style="left:1010px;top:658px;width:350px;height:80px">
+  <div class="bt">&#127758; GeoLocationRegistry</div>
+  <div class="tech">[domain service · @PostConstruct · in-memory]</div>
+  <div class="desc">52 locais fictícios · resolve locationCode → cidade/país/coords<br>fallback aleatório se locationCode omitido · zero infra</div>
 </div>
 
 <!-- KAFKA event bus (local-rich) -->
-<div class="bx ckf" style="left:1010px;top:670px;width:350px;height:74px">
+<div class="bx ckf" style="left:1010px;top:756px;width:350px;height:74px">
   <div class="bt">Kafka — Event Bus</div>
   <div class="tech">[evento de transação · só local-rich]</div>
   <div class="warn">&#9888; AWS: omitido (sem MSK grátis) → publisher no-op</div>
 </div>
 
 <!-- DATA boundary -->
-<div class="bnd bdb" style="left:60px;top:760px;width:730px;height:150px">
+<div class="bnd bdb" style="left:60px;top:848px;width:730px;height:150px">
   <div class="blb" style="color:#3F96E0">Camada de Dados (Multi-AZ · HA)</div>
 </div>
-<div class="bx cdb" style="left:85px;top:795px;width:230px;height:80px">
+<div class="bx cdb" style="left:85px;top:883px;width:230px;height:80px">
   <div class="bt">Aurora PostgreSQL</div>
   <div class="tech">[Ledger ACID · users · profiles · auditoria]</div>
   <div class="warn">&#9888; atual: DynamoDB instância única</div>
 </div>
-<div class="bx crd" style="left:335px;top:795px;width:185px;height:80px">
+<div class="bx crd" style="left:335px;top:883px;width:185px;height:80px">
   <div class="bt">ElastiCache (Redis)</div>
   <div class="tech">[idempotência · velocity]</div>
   <div class="warn">&#9888; atual: tabela DynamoDB</div>
 </div>
-<div class="bx cdb" style="left:540px;top:795px;width:230px;height:80px">
+<div class="bx cdb" style="left:540px;top:883px;width:230px;height:80px">
   <div class="bt">Secrets Manager</div>
   <div class="tech">[credenciais · rotação]</div>
   <div class="warn">&#9888; atual: SSM Parameter Store</div>
@@ -172,35 +181,35 @@ path{stroke-linecap:square}
 <div class="bx cob" style="left:1018px;top:315px;width:326px;height:64px">
   <div class="bt">New Relic (OTLP)</div>
   <div class="tech">[APM · dashboards · alertas]</div>
-  <div class="note">local: Jaeger / Grafana</div>
+  <div class="note">local: Grafana otel-lgtm (:3000)</div>
 </div>
 
 <!-- LEGENDA -->
-<div id="leg" style="left:60px;top:930px;width:1300px">
-  <div class="ltit">Fluxo · Decisão por IA · Retorno ao cliente · Kafka local · Simplificações (custo zero)</div>
+<div id="leg" style="left:60px;top:1018px;width:1300px">
+  <div class="ltit">Fluxo · Decisão por IA · Geolocalização · Retorno ao cliente · Kafka local · Simplificações (custo zero)</div>
   <div class="lgr">
     <div>
-      <div class="li"><span class="ln">1</span><span>Cliente → API GW (POST /process + JWT) → 202 + correlationId</span></div>
+      <div class="li"><span class="ln">1</span><span>Cliente → API GW (POST /process + JWT + locationCode?) → 202</span></div>
       <div class="li"><span class="ln">2</span><span>Orchestrator: idempotência + fraud score em cache (Redis)</span></div>
-      <div class="li"><span class="ln">3</span><span>Salva PENDING (ledger) + injeta traceparent</span></div>
+      <div class="li"><span class="ln">3</span><span>Salva PENDING (ledger) + injeta traceparent + locationCode</span></div>
       <div class="li"><span class="ln">4</span><span>StartExecution → saga (Temporal local / Step Functions AWS)</span></div>
     </div>
     <div>
       <div class="li"><span class="ln">5</span><span>ValidateBusinessRules (limite, parcelas)</span></div>
-      <div class="li"><span class="ln">&#11088;</span><span>AnalyzeFraud: <b>decisão por IA</b> (Bedrock/Ollama) — diferencial</span></div>
+      <div class="li"><span class="ln">&#11088;</span><span>AnalyzeFraud → IA chama get_geo_context → GeoLocationRegistry resolve home + tx</span></div>
+      <div class="li"><span class="ln">G</span><span style="color:#2ECC71">IA raciocina: SP→Polo Norte (+40) · SP→Tóquio (+30) · SP→Londres (+20)</span></div>
       <div class="li"><span class="ln">6</span><span>UpdateStatus: APPROVED/REJECTED + idempotência</span></div>
-      <div class="li"><span class="lk">K</span><span>UpdateStatus → Kafka → auditoria na tabela Postgres (local-rich)</span></div>
     </div>
     <div>
+      <div class="li"><span class="lk">K</span><span>UpdateStatus → Kafka → auditoria na tabela Postgres (local-rich)</span></div>
       <div class="li"><span class="lr">A</span><span>Retorno polling: Cliente → GET /status/{id} → lê ledger</span></div>
       <div class="li"><span class="lr">B</span><span>Retorno webhook: UpdateStatus → POST(callbackUrl) HMAC</span></div>
-      <div class="li"><span class="lw">&#9888;</span><span>Erro em qualquer passo → RollbackCompensation</span></div>
       <div class="li"><span class="lw">&#9888;</span><span>Lambda · DynamoDB única · ElastiCache→DynamoDB · Secrets→SSM · Kafka só local</span></div>
     </div>
   </div>
 </div>
 
-<svg viewBox="0 0 1400 1040" width="1400" height="1040" preserveAspectRatio="xMinYMin meet" style="position:absolute;top:0;left:0;pointer-events:none;z-index:30" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 1400 1130" width="1400" height="1130" preserveAspectRatio="xMinYMin meet" style="position:absolute;top:0;left:0;pointer-events:none;z-index:30" xmlns="http://www.w3.org/2000/svg">
 <defs>
   <marker id="mb" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0L0,7L8,3z" fill="#1168bd"/></marker>
   <marker id="mo" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0L0,7L8,3z" fill="#FF9900"/></marker>
@@ -230,9 +239,9 @@ path{stroke-linecap:square}
 <!-- Auth -> Token-Exchange -->
 <path d="M 205,303 L 205,318" stroke="#FF9900" stroke-width="1.5" fill="none" marker-end="url(#mo)" class="as"/>
 <!-- Auth -> Aurora (users) gutter esquerdo -->
-<path d="M 80,274 L 42,274 L 42,835 L 85,835" stroke="#3F96E0" stroke-width="1.3" fill="none" marker-end="url(#mc)" class="ad"/>
-<rect x="18" y="555" width="50" height="15" rx="2" fill="#0d1117"/>
-<text x="43" y="566" font-size="8.5" font-family="Segoe UI,Arial" fill="#3F96E0" text-anchor="middle">users</text>
+<path d="M 80,274 L 42,274 L 42,923 L 85,923" stroke="#3F96E0" stroke-width="1.3" fill="none" marker-end="url(#mc)" class="ad"/>
+<rect x="18" y="595" width="50" height="15" rx="2" fill="#0d1117"/>
+<text x="43" y="606" font-size="8.5" font-family="Segoe UI,Arial" fill="#3F96E0" text-anchor="middle">users</text>
 
 <!-- API GW -> Orchestrator -->
 <path d="M 625,190 L 625,240" stroke="#1168bd" stroke-width="1.8" fill="none" marker-end="url(#mb)" class="as"/>
@@ -243,22 +252,26 @@ path{stroke-linecap:square}
 <text x="560" y="397" font-size="8.5" font-family="Segoe UI,Arial" fill="#2ECC71" text-anchor="middle">4 · StartExecution</text>
 
 <!-- 2: Orchestrator -> ElastiCache (cache) -->
-<path d="M 460,330 L 422,330 L 422,732 L 427,732 L 427,795" stroke="#DC382D" stroke-width="1.4" fill="none" marker-end="url(#mr)" class="ad"/>
-<rect x="398" y="724" width="58" height="15" rx="2" fill="#0d1117"/>
-<text x="427" y="735" font-size="8.5" font-family="Segoe UI,Arial" fill="#DC382D" text-anchor="middle">2 · cache</text>
+<path d="M 460,330 L 422,330 L 422,820 L 427,820 L 427,883" stroke="#DC382D" stroke-width="1.4" fill="none" marker-end="url(#mr)" class="ad"/>
+<rect x="398" y="812" width="58" height="15" rx="2" fill="#0d1117"/>
+<text x="427" y="823" font-size="8.5" font-family="Segoe UI,Arial" fill="#DC382D" text-anchor="middle">2 · cache</text>
 <!-- 3: Orchestrator -> Aurora (PENDING) -->
-<path d="M 460,344 L 430,344 L 430,720 L 190,720 L 190,795" stroke="#3F96E0" stroke-width="1.4" fill="none" marker-end="url(#mc)" class="ad"/>
-<rect x="200" y="712" width="74" height="15" rx="2" fill="#0d1117"/>
-<text x="237" y="723" font-size="8.5" font-family="Segoe UI,Arial" fill="#3F96E0" text-anchor="middle">3 · PENDING</text>
+<path d="M 460,344 L 430,344 L 430,808 L 190,808 L 190,883" stroke="#3F96E0" stroke-width="1.4" fill="none" marker-end="url(#mc)" class="ad"/>
+<rect x="200" y="800" width="74" height="15" rx="2" fill="#0d1117"/>
+<text x="237" y="811" font-size="8.5" font-family="Segoe UI,Arial" fill="#3F96E0" text-anchor="middle">3 · PENDING</text>
 
 <!-- 5: Validate -> AnalyzeFraud -->
 <path d="M 548,512 L 548,558" stroke="#2ECC71" stroke-width="1.8" fill="none" marker-end="url(#mg)" class="as"/>
 <rect x="532" y="528" width="34" height="15" rx="2" fill="#0d1117"/>
 <text x="549" y="539" font-size="8.5" font-family="Segoe UI,Arial" fill="#2ECC71" text-anchor="middle">5 ✓</text>
 <!-- AnalyzeFraud -> Bedrock/Ollama (PITCH) -->
-<path d="M 658,602 L 548,602 L 548,680 L 985,680 L 985,588 L 1010,588" stroke="#9B59B6" stroke-width="2.3" fill="none" marker-end="url(#mp)" class="as"/>
+<path d="M 658,602 L 692,602 L 692,680 L 985,680 L 985,584 L 1010,584" stroke="#9B59B6" stroke-width="2.3" fill="none" marker-end="url(#mp)" class="as"/>
 <rect x="740" y="672" width="120" height="16" rx="2" fill="#0d1117"/>
 <text x="800" y="684" font-size="9" font-family="Segoe UI,Arial" fill="#C77DEF" text-anchor="middle">&#11088; decisão por IA</text>
+<!-- Bedrock -> GeoLocationRegistry (resolve locationCode) -->
+<path d="M 1185,627 L 1185,658" stroke="#2ECC71" stroke-width="1.6" fill="none" marker-end="url(#mg)" class="ad"/>
+<rect x="1096" y="631" width="120" height="14" rx="2" fill="#0d1117"/>
+<text x="1156" y="642" font-size="8" font-family="Segoe UI,Arial" fill="#2ECC71" text-anchor="middle">&#127758; get_geo_context</text>
 <!-- AnalyzeFraud -> UpdateStatus (score) -->
 <path d="M 658,582 L 688,582 L 688,478 L 715,478" stroke="#2ECC71" stroke-width="1.8" fill="none" marker-end="url(#mg)" class="as"/>
 <rect x="694" y="524" width="44" height="15" rx="2" fill="#0d1117"/>
@@ -269,18 +282,18 @@ path{stroke-linecap:square}
 <text x="716" y="460" font-size="8.5" font-family="Segoe UI,Arial" fill="#E74C3C" text-anchor="middle">✗ catch</text>
 
 <!-- 6: UpdateStatus -> Aurora (result) -->
-<path d="M 715,500 L 700,500 L 700,705 L 250,705 L 250,795" stroke="#2ECC71" stroke-width="1.6" fill="none" marker-end="url(#mg)" class="as"/>
-<rect x="430" y="697" width="132" height="15" rx="2" fill="#0d1117"/>
-<text x="496" y="708" font-size="8.5" font-family="Segoe UI,Arial" fill="#2ECC71" text-anchor="middle">6 · APPROVED / REJECTED</text>
+<path d="M 715,500 L 700,500 L 700,793 L 292,793 L 292,883" stroke="#2ECC71" stroke-width="1.6" fill="none" marker-end="url(#mg)" class="as"/>
+<rect x="430" y="785" width="132" height="15" rx="2" fill="#0d1117"/>
+<text x="496" y="796" font-size="8.5" font-family="Segoe UI,Arial" fill="#2ECC71" text-anchor="middle">6 · APPROVED / REJECTED</text>
 
 <!-- K1: UpdateStatus -> Kafka (publica evento) -->
-<path d="M 945,500 L 975,500 L 975,700 L 1010,700" stroke="#d97706" stroke-width="1.6" fill="none" marker-end="url(#mk)" class="ar"/>
-<rect x="978" y="640" width="100" height="15" rx="2" fill="#0d1117"/>
-<text x="1028" y="651" font-size="8.5" font-family="Segoe UI,Arial" fill="#d97706" text-anchor="middle">K · publica evento</text>
+<path d="M 945,500 L 975,500 L 975,788 L 1010,788" stroke="#d97706" stroke-width="1.6" fill="none" marker-end="url(#mk)" class="ar"/>
+<rect x="888" y="740" width="112" height="14" rx="1" fill="#0d1117"/>
+<text x="944" y="751" font-size="8.5" font-family="Segoe UI,Arial" fill="#d97706" text-anchor="middle">K · publica evento</text>
 <!-- K2: Kafka -> Aurora (auditoria Postgres) -->
-<path d="M 1040,744 L 1040,898 L 230,898 L 230,875" stroke="#d97706" stroke-width="1.4" fill="none" marker-end="url(#mc)" class="ar"/>
-<rect x="560" y="890" width="150" height="15" rx="2" fill="#0d1117"/>
-<text x="635" y="901" font-size="8.5" font-family="Segoe UI,Arial" fill="#d97706" text-anchor="middle">auditoria → Postgres</text>
+<path d="M 1040,830 L 1040,985 L 230,985 L 230,963" stroke="#d97706" stroke-width="1.4" fill="none" marker-end="url(#mc)" class="ar"/>
+<rect x="560" y="977" width="150" height="15" rx="2" fill="#0d1117"/>
+<text x="635" y="988" font-size="8.5" font-family="Segoe UI,Arial" fill="#d97706" text-anchor="middle">auditoria → Postgres</text>
 
 <!-- RETORNO B: UpdateStatus -> Cliente (WEBHOOK) -->
 <path d="M 945,460 L 990,460 L 990,52 L 750,52" stroke="#2DD4BF" stroke-width="2" fill="none" marker-end="url(#mt)" class="ad"/>

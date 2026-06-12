@@ -1,18 +1,16 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.postgres;
 
-import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,11 +29,16 @@ class PostgresTransactionAdapterTest {
     @Autowired
     private TransactionJpaRepository repository;
 
+    @Autowired
+    private EntityManager em;
+
     private PostgresTransactionAdapter adapter;
 
     @BeforeEach
     void setUp() {
         repository.deleteAll();
+        em.flush();
+        em.clear();
         adapter = new PostgresTransactionAdapter(repository);
     }
 
@@ -44,7 +47,7 @@ class PostgresTransactionAdapterTest {
         SagaPayload payload = buildPayload(UUID.randomUUID(), TransactionStatus.PENDING);
 
         adapter.save(payload);
-        Optional<SagaPayload> found = adapter.findById(payload.correlationId());
+        var found = adapter.findById(payload.correlationId());
 
         assertThat(found).isPresent();
         assertThat(found.get().transactionId()).isEqualTo(payload.transactionId());
@@ -55,11 +58,12 @@ class PostgresTransactionAdapterTest {
     void shouldUpdateStatus() {
         UUID correlationId = UUID.randomUUID();
         adapter.save(buildPayload(correlationId, TransactionStatus.PENDING));
+        em.flush();
+        em.clear();
 
         adapter.updateStatus(correlationId, TransactionStatus.APPROVED);
 
-        assertThat(adapter.findStatus(correlationId))
-                .contains(TransactionStatus.APPROVED);
+        assertThat(adapter.findStatus(correlationId)).contains(TransactionStatus.APPROVED);
     }
 
     @Test
@@ -72,21 +76,21 @@ class PostgresTransactionAdapterTest {
     void shouldOverwriteOnSave() {
         UUID correlationId = UUID.randomUUID();
         adapter.save(buildPayload(correlationId, TransactionStatus.PENDING));
+        em.flush();
+        em.clear();
+
         adapter.save(buildPayload(correlationId, TransactionStatus.APPROVED));
+        em.flush();
+        em.clear();
 
         assertThat(adapter.findStatus(correlationId)).contains(TransactionStatus.APPROVED);
     }
 
     private SagaPayload buildPayload(UUID correlationId, TransactionStatus status) {
-        return new SagaPayload(
+        return SagaPayloadFixture.withIdsAndStatus(
                 "TX-PG-" + correlationId.toString().substring(0, 8),
                 correlationId,
-                new CardToken("tok-" + correlationId),
-                new BigDecimal("500.00"),
-                3,
-                Brand.VISA,
-                status,
-                LocalDateTime.now(),
-                null, null);
+                new CardToken("token-pg"),
+                status);
     }
 }

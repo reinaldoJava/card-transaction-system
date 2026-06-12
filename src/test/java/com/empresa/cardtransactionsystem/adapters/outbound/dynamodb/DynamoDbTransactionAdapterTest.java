@@ -1,18 +1,16 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
-import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
-import java.math.BigDecimal;
 import java.net.URI;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -42,9 +40,7 @@ class DynamoDbTransactionAdapterTest {
     @Test
     void shouldSaveAndRetrieveTransaction() {
         UUID correlationId = UUID.randomUUID();
-        SagaPayload payload = new SagaPayload("TXN001", correlationId,
-                new CardToken("safe-token"), new BigDecimal("100.00"), 1, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
+        SagaPayload payload = SagaPayloadFixture.withIds("TXN001", correlationId, new CardToken("safe-token"));
 
         adapter.save(payload);
 
@@ -56,9 +52,7 @@ class DynamoDbTransactionAdapterTest {
     @Test
     void shouldUpdateTransactionStatus() {
         UUID correlationId = UUID.randomUUID();
-        SagaPayload payload = new SagaPayload("TXN002", correlationId,
-                new CardToken("safe-token"), new BigDecimal("200.00"), 2, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
+        SagaPayload payload = SagaPayloadFixture.withIds("TXN002", correlationId, new CardToken("safe-token"));
 
         adapter.save(payload);
         adapter.updateStatus(correlationId, TransactionStatus.APPROVED);

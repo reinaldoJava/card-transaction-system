@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.function;
 
+import com.empresa.cardtransactionsystem.config.FunctionsConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardDataRequest;
@@ -33,7 +34,7 @@ class ProcessTransactionFunctionTest {
         var request = new CardTransactionRequest(
                 "TXN-001", uuid,
                 new CardDataRequest("4111111111111111", "123", "John Doe", "VISA"),
-                new BigDecimal("500.00"), 3, null
+                new BigDecimal("500.00"), 3, null, null
         );
         when(orchestrator.orchestrate(request)).thenReturn(uuid);
         UUID result = function.apply(request);

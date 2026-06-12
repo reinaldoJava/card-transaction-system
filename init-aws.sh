@@ -70,5 +70,11 @@ awslocal ssm put-parameter \
   --type SecureString \
   --region us-east-1 || echo "SSM nr-license-key already exists"
 
+awslocal ssm put-parameter \
+  --name /card-transaction-system/fraud/bedrock/system-prompt \
+  --value "$(cat /prompts/bedrock-fraud-system.txt)" \
+  --type String \
+  --region us-east-1 || echo "SSM bedrock system-prompt already exists"
+
 echo "SSM parameters initialized."
 echo "LocalStack initialization complete."

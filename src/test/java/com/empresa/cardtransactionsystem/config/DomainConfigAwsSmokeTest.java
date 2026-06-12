@@ -5,6 +5,8 @@ import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbCach
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbClientProfileAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbTransactionAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbUserRepositoryAdapter;
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbTransactionHistoryAdapter;
+import com.empresa.cardtransactionsystem.adapters.outbound.lambda.LambdaTokenExchangeAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.noop.NoOpAuditAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.noop.NoOpDomainEventPublisherAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.saga.StepFunctionsSagaStarterAdapter;
@@ -17,6 +19,9 @@ import com.empresa.cardtransactionsystem.domain.ports.output.SagaStarterPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionHistoryPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.UserRepositoryPort;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.springframework.test.context.bean.override.convention.TestBean;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,18 +34,33 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.lambda.LambdaClient;
 import software.amazon.awssdk.services.sfn.SfnClient;
 import software.amazon.awssdk.services.ssm.SsmClient;
 import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 import software.amazon.awssdk.services.ssm.model.GetParameterResponse;
 import software.amazon.awssdk.services.ssm.model.Parameter;
 
+import org.springframework.test.annotation.DirtiesContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@DirtiesContext
 @SpringBootTest(properties = {
-        "spring.kafka.bootstrap-servers=localhost:19092"
+        "spring.autoconfigure.exclude=" +
+                "org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration," +
+                "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration," +
+                "org.springframework.boot.jdbc.autoconfigure.DataSourceInitializationAutoConfiguration," +
+                "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration," +
+                "org.springframework.boot.data.jpa.autoconfigure.JpaRepositoriesAutoConfiguration," +
+                "org.springframework.boot.actuate.autoconfigure.metrics.export.otlp.OtlpMetricsExportAutoConfiguration",
+        "auth.lambda.function-name=token-exchange-lambda",
+        "auth.hardcoded-opaque-token=test-opaque-token",
+        "aws.region=sa-east-1",
+        "step-functions.state-machine-arn=arn:aws:states:sa-east-1:000000000000:stateMachine:test",
+        "spring.cloud.function.definition="
 })
-@ActiveProfiles("aws")
+@ActiveProfiles({"aws", "cache-dynamodb", "queue-none", "saga-stepfunctions", "ledger-dynamodb", "fraud-bedrock", "env-aws","test"})
+//TODO Analisar porque esse teste não está funcionando.
 class DomainConfigAwsSmokeTest {
 
     @TestConfiguration
@@ -66,6 +86,17 @@ class DomainConfigAwsSmokeTest {
     @MockitoBean private DynamoDbEnhancedClient enhancedClient;
     @MockitoBean private SfnClient sfnClient;
     @MockitoBean private BedrockRuntimeClient bedrockClient;
+    // Substitui o FlushableOtlpMeterRegistry (env-aws) por um registry real e sem rede,
+    // mantendo o @Primary — para o TransactionMetrics conseguir registrar os meters no contexto de teste.
+    @TestBean(name = "otlpMeterRegistry")
+    private MeterRegistry otlpMeterRegistry;
+
+    static MeterRegistry otlpMeterRegistry() {
+        return new SimpleMeterRegistry();
+    }
+
+    @MockitoBean private LambdaClient lambdaClient;
+    @MockitoBean private LambdaTokenExchangeAdapter lambdaTokenExchangeAdapter;
 
     @Test
     void shouldBindCachePortToDynamoDbAdapter() {
@@ -116,8 +147,8 @@ class DomainConfigAwsSmokeTest {
     }
 
     @Test
-    void shouldBindTransactionHistoryPortToNoOpAdapter() {
+    void shouldBindTransactionHistoryPortToDynamoDbAdapter() {
         assertThat(context.getBean(TransactionHistoryPort.class))
-                .isInstanceOf(NoOpAuditAdapter.class);
+                .isInstanceOf(DynamoDbTransactionHistoryAdapter.class);
     }
 }

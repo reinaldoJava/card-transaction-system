@@ -10,6 +10,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
     volumes:
       - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "./scripts/prompts:/prompts:ro"
       - "/var/run/docker.sock:/var/run/docker.sock"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
@@ -138,31 +139,23 @@ services:
     entrypoint: ["ollama", "pull", "mistral"]
     restart: "no"
 
-  jaeger:
-    image: jaegertracing/all-in-one:1.57
-    container_name: jaeger
+  # Grafana OpenTelemetry LGTM — backend OTel "tudo-em-um" para dev local
+  # (OTel Collector + Tempo=traces + Prometheus=metricas + Loki=logs + Grafana).
+  # Recebe OTLP em 4317/4318 e expoe o Grafana em http://localhost:3000
+  # (datasources Tempo/Prometheus/Loki ja vem provisionados).
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.8.1
+    container_name: otel-lgtm
     ports:
-      - "127.0.0.1:16686:16686"
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      - "127.0.0.1:3000:3000"   # Grafana UI
+      - "127.0.0.1:4317:4317"   # OTLP gRPC
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.91.0
-    container_name: otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
-    volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
-    ports:
-      - "127.0.0.1:4317:4317"
-      - "127.0.0.1:4318:4318"
-    depends_on:
-      jaeger:
-        condition: service_healthy
+      start_period: 30s
+      retries: 10
 
 volumes:
   ollama_data:

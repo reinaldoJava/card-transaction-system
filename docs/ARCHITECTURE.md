@@ -95,8 +95,9 @@ rodando em Docker/k8s, **sem tocar a nuvem** e **sem custo** (inclusive a IA, vi
 | Auditoria | **Projeção Kafka → tabela Postgres** | Dá ao Kafka um consumidor **real e barato** (event-driven audit) **sem** cluster de busca (OpenSearch). Reaproveita o Postgres já presente. |
 | Análise de fraude (IA) | **Ollama / Mistral** | Roda o agente de IA **localmente, offline e grátis** — o diferencial do projeto funciona sem depender da nuvem. |
 | Segredos | **`@Value` / config local** | Sem SSM; segredos por variável/arquivo no dev. |
-| Observabilidade | **Jaeger / Grafana (OTel Collector)** | Mesma instrumentação OTel, exportando para um backend local — sem consumir a cota do New Relic. |
-| Infra | **Docker Compose / k8s (kind/k3d)** | Sobe Redis, Postgres, Kafka, Temporal e a stack de observabilidade como um ambiente coeso. |
+| Observabilidade | **Grafana otel-lgtm** (Tempo=traces · Prometheus=métricas · Loki=logs · UI `:3000`) | Backend OTel "tudo-em-um": mesma instrumentação, traces **e** métricas num só Grafana, sem consumir a cota do New Relic. |
+| Resiliência da IA | **Circuit breaker (Resilience4j) + timeout** | Ollama fora → breaker abre, falha rápido e a saga cai nas regras de degrade; HALF_OPEN sonda a recuperação. |
+| Infra | **Docker Compose / k8s (kind/k3d)** | Sobe Redis, Postgres, Kafka, Temporal e a stack de observabilidade (otel-lgtm) como um ambiente coeso. |
 
 **Resumo da lógica local:** cada componente é o que um sistema de cartões usaria em produção real
 (Redis, Postgres, Temporal, Kafka), exercitando o código nos mesmos pontos de integração — mas sem
@@ -116,7 +117,7 @@ custo e sem nuvem. A IA roda via Ollama, mantendo o pitch demonstrável offline.
 | Mensageria/auditoria | Kafka → auditoria Postgres | nenhuma (no-op) |
 | IA (fraude) | Ollama / Mistral | Amazon Bedrock |
 | Segredos | `@Value`/local | SSM Parameter Store |
-| Observabilidade | Jaeger / Grafana | New Relic (free) |
+| Observabilidade | Grafana otel-lgtm (:3000) | New Relic (free) |
 | Orquestração de infra | Docker / k8s | Lambdas serverless |
 | Objetivo | máxima fidelidade | custo zero |
 
@@ -133,7 +134,11 @@ selecionados.
   `include_execution_data=false`.
 - **Observabilidade vendor-neutral:** instrumentação única via **Micrometer Observation + OpenTelemetry**
   (sem javaagent), com `traceparent` propagado pela saga para um **trace único** ponta-a-ponta. Trocar
-  o backend (New Relic ↔ Jaeger/Grafana) é só configuração.
+  o backend (New Relic ↔ Grafana otel-lgtm) é só configuração.
+- **Resiliência / degrade:** os adapters de IA (Ollama e Bedrock) são protegidos por **circuit breaker
+  (Resilience4j)** + timeout no `RestTemplate`. Quando o provedor de IA cai, o breaker abre, falha
+  rápido (com `WARN` nas transições de estado) e a saga aplica as **regras de degrade** (geo + janela
+  de madrugada + limites VIP/regular); o estado HALF_OPEN sonda periodicamente a recuperação.
 - **Retorno desacoplado:** polling (`GET /status`) como baseline universal e webhook (HMAC) como push
   para clientes servidor-a-servidor.
 - **IA como diferencial:** a decisão de fraude por LLM é o núcleo do produto; o restante da arquitetura

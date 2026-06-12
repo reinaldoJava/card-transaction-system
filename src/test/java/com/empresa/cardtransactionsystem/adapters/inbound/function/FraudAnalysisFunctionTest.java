@@ -2,11 +2,13 @@ package com.empresa.cardtransactionsystem.adapters.inbound.function;
 
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TraceparentExtractor;
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TransactionMetrics;
-import com.empresa.cardtransactionsystem.domain.model.Brand;
-import com.empresa.cardtransactionsystem.domain.model.CardToken;
+import com.empresa.cardtransactionsystem.config.FunctionsConfig;
+
+
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
-import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
+
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
@@ -18,8 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+
+
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -58,8 +60,6 @@ class FraudAnalysisFunctionTest {
     }
 
     private SagaPayload payload() {
-        return new SagaPayload("TXN-001", UUID.randomUUID(), new CardToken("tok"),
-                new BigDecimal("500.00"), 3, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null, null);
+        return SagaPayloadFixture.minimal();
     }
 }

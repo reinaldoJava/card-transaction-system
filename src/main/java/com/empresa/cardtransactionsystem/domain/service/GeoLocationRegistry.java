@@ -1,8 +1,8 @@
 package com.empresa.cardtransactionsystem.domain.service;
 
 import com.empresa.cardtransactionsystem.domain.model.GeoLocation;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

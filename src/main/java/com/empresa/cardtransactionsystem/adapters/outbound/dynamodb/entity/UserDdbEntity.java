@@ -1,4 +1,4 @@
-package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
+package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity;
 
 import com.empresa.cardtransactionsystem.domain.model.auth.User;
 import software.amazon.awssdk.enhanced.dynamodb.mapper.annotations.DynamoDbBean;

@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.UserDdbEntity;
 import com.empresa.cardtransactionsystem.domain.model.auth.User;
 import com.empresa.cardtransactionsystem.domain.ports.output.UserRepositoryPort;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;

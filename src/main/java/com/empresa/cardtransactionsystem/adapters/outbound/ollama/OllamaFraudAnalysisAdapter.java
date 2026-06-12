@@ -2,7 +2,7 @@ package com.empresa.cardtransactionsystem.adapters.outbound.ollama;
 
 import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
-import com.empresa.cardtransactionsystem.domain.model.FraudAnalysisRequest;
+import com.empresa.cardtransactionsystem.domain.model.FraudCandidate;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.GeoLocation;
 import com.empresa.cardtransactionsystem.domain.model.MerchantProfile;
@@ -13,10 +13,17 @@ import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.FraudAnalysisPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionHistoryPort;
 import com.empresa.cardtransactionsystem.domain.service.GeoLocationRegistry;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,69 +43,64 @@ public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
     private static final Pattern SCORE_PATTERN = Pattern.compile("(\\d+)");
     private static final String MODEL = "mistral";
 
+    private static final Logger log = LoggerFactory.getLogger(OllamaFraudAnalysisAdapter.class);
+
     private final RestTemplate restTemplate;
     private final TransactionHistoryPort historyPort;
     private final ClientProfilePort clientProfilePort;
     private final GeoLocationRegistry geoLocationRegistry;
+    private final CircuitBreaker circuitBreaker;
+    private final SsmClient ssmClient;
     private final String ollamaUrl;
+    private final String systemPromptParameterName;
+
+    private String systemPrompt;
 
     public OllamaFraudAnalysisAdapter(
             RestTemplate restTemplate,
             TransactionHistoryPort historyPort,
             ClientProfilePort clientProfilePort,
             GeoLocationRegistry geoLocationRegistry,
-            @Value("${ollama.url:http://localhost:11434}") String ollamaUrl) {
+            @Qualifier("ollamaFraudCircuitBreaker") CircuitBreaker circuitBreaker,
+            SsmClient ssmClient,
+            @Value("${ollama.url:http://localhost:11434}") String ollamaUrl,
+            @Value("${ollama.fraud-agent.system-prompt-parameter:/card-transaction-system/fraud/bedrock/system-prompt}")
+            String systemPromptParameterName) {
         this.restTemplate = restTemplate;
         this.historyPort = historyPort;
         this.clientProfilePort = clientProfilePort;
         this.geoLocationRegistry = geoLocationRegistry;
+        this.circuitBreaker = circuitBreaker;
+        this.ssmClient = ssmClient;
         this.ollamaUrl = ollamaUrl;
+        this.systemPromptParameterName = systemPromptParameterName;
+    }
+
+    @PostConstruct
+    void loadSystemPrompt() {
+        systemPrompt = ssmClient.getParameter(
+                GetParameterRequest.builder()
+                        .name(systemPromptParameterName)
+                        .withDecryption(false)
+                        .build()
+        ).parameter().value();
+        log.info("OllamaFraudAnalysisAdapter: system prompt loaded from SSM '{}'", systemPromptParameterName);
     }
 
     @Override
-    public FraudScore analyze(FraudAnalysisRequest request) {
+    public FraudScore analyze(FraudCandidate request) {
         TransactionHistory history = historyPort.findByCardToken(request.cardToken());
         MerchantProfile merchant = MerchantProfile.forBrand(request.brand());
         ClientProfile profile = clientProfilePort.findByCardToken(request.cardToken()).orElse(null);
-        String prompt = buildPrompt(request, history, merchant, profile);
-        String response = callOllama(prompt);
+        String userPrompt = buildUserPrompt(request, history, merchant, profile);
+        String response = callOllama(systemPrompt, userPrompt);
         return FraudScore.of(extractScore(response));
     }
 
-    private String buildPrompt(FraudAnalysisRequest request, TransactionHistory history,
-                               MerchantProfile merchant, ClientProfile profile) {
+    private String buildUserPrompt(FraudCandidate request, TransactionHistory history,
+                                   MerchantProfile merchant, ClientProfile profile) {
         return """
-                You are a senior fraud analyst at a Brazilian payment processor.
-                Score the transaction below from 0 (no risk) to 100 (confirmed fraud).
-                Apply the scoring rubric precisely. Respond with ONLY an integer, nothing else.
-
-                SCORING RUBRIC — sum applicable penalties, then subtract mitigating factors:
-
-                RISK FACTORS (+pts):
-                  +35 — velocity spike: >5 transactions in the last 24h
-                  +25 — amount strongly deviates: current amount ≥ 3× card's historical average
-                  +20 — dawn window: transaction between 00:00 and 06:00
-                  +20 — high rejection rate: >30%% of recent transactions were rejected
-                  +15 — burst pattern: ≥3 transactions in the last 60 minutes
-                  +15 — high installment count (>6) on a high-value transaction (>R$500)
-                  +12 — round-number amount (e.g., R$500,00 or R$1000,00)
-                  +10 — no prior history: fewer than 3 transactions on record
-                  +10 — AMEX brand: statistically higher cloning and CNP risk
-                  +8  — weekend + high amount (>R$1000)
-                  +40 — geo: transaction location is geographically implausible (e.g., North Pole, middle of ocean, uninhabited region)
-                  +30 — geo: transaction in a very distant country from client's home (e.g., São Paulo → Tokyo)
-                  +20 — geo: transaction in a different continent (e.g., São Paulo → London)
-                  +10 — geo: transaction in a neighboring country (e.g., São Paulo → Buenos Aires)
-
-                MITIGATING FACTORS (−pts):
-                  −20 — amount is well below card's 30-day average (≤50%% of avg)
-                  −15 — normal business hours (09:00–18:00, Mon–Fri) with clean history
-                  −10 — VISA or MASTER brand with clean history (0%% rejection)
-                  −10 — low-value transaction (≤R$100) with stable history
-                  −10 — geo: transaction location matches or is near client's home city
-
-                CALIBRATION:
-                  0–20 : low risk    |  21–49 : moderate  |  50–74 : high  |  75–100 : very high
+                Analyze this transaction for fraud and produce a fraud_score.
 
                 --- TRANSACTION ---
                   amount:              R$%s
@@ -187,7 +189,7 @@ public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
                         history.totalAmountLast30Days());
     }
 
-    private String buildRiskSignalsSection(FraudAnalysisRequest request) {
+    private String buildRiskSignalsSection(FraudCandidate request) {
         LocalDateTime now = LocalDateTime.now();
         LocalTime time = now.toLocalTime();
         DayOfWeek dow = now.getDayOfWeek();
@@ -247,7 +249,7 @@ public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
                         installmentRisk, amountPerInstallment);
     }
 
-    private String buildGeoSection(FraudAnalysisRequest request, ClientProfile profile) {
+    private String buildGeoSection(FraudCandidate request, ClientProfile profile) {
         GeoLocation txLocation = geoLocationRegistry.findByCode(request.locationCode()).orElse(null);
 
         if (txLocation == null) {
@@ -273,13 +275,17 @@ public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
                         homeLocation.latitude(), homeLocation.longitude());
     }
 
-    private String callOllama(String prompt) {
-        OllamaRequest ollamaRequest = new OllamaRequest(MODEL, prompt, false);
-        OllamaResponse response = restTemplate.postForObject(
-                ollamaUrl + "/api/generate",
-                ollamaRequest,
-                OllamaResponse.class);
-        return response != null ? response.response() : "50";
+    private String callOllama(String system, String prompt) {
+        OllamaRequest ollamaRequest = new OllamaRequest(MODEL, system, prompt, false);
+        try {
+            OllamaResponse response = circuitBreaker.executeSupplier(() ->
+                    restTemplate.postForObject(ollamaUrl + "/api/generate", ollamaRequest, OllamaResponse.class));
+            return response != null ? response.response() : "50";
+        } catch (Exception e) {
+            log.warn("Ollama indisponivel em {} ({}): propagando para a saga aplicar as regras de degrade.",
+                    ollamaUrl, e.getMessage());
+            throw e;
+        }
     }
 
     private int extractScore(String response) {
@@ -291,7 +297,7 @@ public class OllamaFraudAnalysisAdapter implements FraudAnalysisPort {
         return 50;
     }
 
-    record OllamaRequest(String model, String prompt, boolean stream) {}
+    record OllamaRequest(String model, String system, String prompt, boolean stream) {}
 
     record OllamaResponse(String response) {}
 }

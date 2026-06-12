@@ -65,6 +65,7 @@ public class TransactionAuditProjector {
                     TransactionStatus.valueOf(status),
                     createdAt != null ? createdAt : LocalDateTime.now(),
                     null,
+                    null,
                     null
             );
         }

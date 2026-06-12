@@ -2,10 +2,12 @@ package com.empresa.cardtransactionsystem.adapters.outbound.bedrock;
 
 import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
-import com.empresa.cardtransactionsystem.domain.model.FraudAnalysisRequest;
+import com.empresa.cardtransactionsystem.domain.model.FraudCandidate;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.TransactionHistory;
+import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionHistoryPort;
+import com.empresa.cardtransactionsystem.domain.service.GeoLocationRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,17 +15,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.awssdk.core.document.Document;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.services.ssm.SsmClient;
 import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
+import software.amazon.awssdk.services.bedrockruntime.model.ConverseOutput;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
-import software.amazon.awssdk.services.bedrockruntime.model.ConverseOutput;
 import software.amazon.awssdk.services.bedrockruntime.model.Message;
 import software.amazon.awssdk.services.bedrockruntime.model.StopReason;
 import software.amazon.awssdk.services.bedrockruntime.model.ToolUseBlock;
-import software.amazon.awssdk.core.document.Document;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,15 +40,39 @@ class BedrockFraudAnalysisAdapterTest {
 
     @Mock private BedrockRuntimeClient bedrockClient;
     @Mock private TransactionHistoryPort historyPort;
+    @Mock private ClientProfilePort clientProfilePort;
+    @Mock private GeoLocationRegistry geoLocationRegistry;
+    @Mock private SsmClient ssmClient;
 
     private BedrockFraudAnalysisAdapter adapter;
 
     private static final String MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
+    private static final String SYSTEM_PROMPT_PARAM = "/card-transaction-system/fraud/bedrock/system-prompt";
 
     @BeforeEach
     void setUp() {
-        adapter = new BedrockFraudAnalysisAdapter(bedrockClient, historyPort, ObservationRegistry.NOOP, MODEL_ID);
+        when(ssmClient.getParameter(any(software.amazon.awssdk.services.ssm.model.GetParameterRequest.class)))
+                .thenReturn(software.amazon.awssdk.services.ssm.model.GetParameterResponse.builder()
+                        .parameter(software.amazon.awssdk.services.ssm.model.Parameter.builder()
+                                .value("You are a fraud analyst. {\"fraud_score\": 0}")
+                                .build())
+                        .build());
+
+        FraudContextBuilder contextBuilder = new FraudContextBuilder(clientProfilePort, geoLocationRegistry);
+        BedrockPromptFactory promptFactory = new BedrockPromptFactory(ssmClient, SYSTEM_PROMPT_PARAM);
+        promptFactory.loadSystemPrompt();
+        BedrockToolDispatcher toolDispatcher = new BedrockToolDispatcher(historyPort, contextBuilder);
+        FraudScoreExtractor scoreExtractor = new FraudScoreExtractor();
+
+        adapter = new BedrockFraudAnalysisAdapter(
+                bedrockClient, promptFactory, toolDispatcher, scoreExtractor,
+                ObservationRegistry.NOOP,
+                io.github.resilience4j.circuitbreaker.CircuitBreaker.ofDefaults("bedrockFraudTest"),
+                MODEL_ID);
+
         lenient().when(historyPort.findByCardToken(any())).thenReturn(TransactionHistory.empty());
+        lenient().when(clientProfilePort.findByCardToken(any())).thenReturn(Optional.empty());
+        lenient().when(geoLocationRegistry.findByCode(any())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -96,11 +124,10 @@ class BedrockFraudAnalysisAdapterTest {
         assertThat(score.score()).isEqualTo(5);
     }
 
-    private FraudAnalysisRequest request() {
-        return new FraudAnalysisRequest(
+    private FraudCandidate request() {
+        return new FraudCandidate(
                 new CardToken("token-uuid"),
-                new BigDecimal("500.00"), 3, Brand.VISA
-        );
+                new BigDecimal("500.00"), 3, Brand.VISA, "SAO_PAULO_CENTRO");
     }
 
     private ConverseResponse converseResponse(StopReason stopReason, String text) {

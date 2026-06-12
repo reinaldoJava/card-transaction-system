@@ -19,8 +19,7 @@ public class KafkaDomainEventPublisherAdapter implements DomainEventPublisherPor
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    public KafkaDomainEventPublisherAdapter(KafkaTemplate<String, String> kafkaTemplate,
-                                             ObjectMapper objectMapper) {
+    public KafkaDomainEventPublisherAdapter(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
     }

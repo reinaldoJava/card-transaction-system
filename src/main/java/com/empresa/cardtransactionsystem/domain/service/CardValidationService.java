@@ -14,7 +14,7 @@ public class CardValidationService {
     public CardToken tokenize(CardData cardData) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(cardData.cardNumber().value().getBytes(StandardCharsets.UTF_8));
+                    .digest(cardData.getNumberBytesForHashing());
             long msb = 0;
             long lsb = 0;
             for (int i = 0; i < 8; i++) msb = (msb << 8) | (hash[i] & 0xff);

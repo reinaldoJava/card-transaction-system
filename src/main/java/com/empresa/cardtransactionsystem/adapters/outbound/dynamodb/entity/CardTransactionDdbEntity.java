@@ -1,4 +1,4 @@
-package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
+package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity;
 
 import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;

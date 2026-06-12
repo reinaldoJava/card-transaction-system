@@ -1,9 +1,9 @@
 package com.empresa.cardtransactionsystem.application.usecase;
 
-import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,8 +12,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.mockito.Mockito.verify;
@@ -49,7 +47,6 @@ class ValidateCardTransactionUseCaseTest {
     }
 
     private SagaPayload payload(TransactionStatus status) {
-        return new SagaPayload("TXN-001", uuid, new CardToken("tok"),
-                new BigDecimal("500.00"), 1, Brand.VISA, status, LocalDateTime.now(), null, null);
+        return SagaPayloadFixture.withIdsAndStatus("TXN-001", uuid, new CardToken("tok"), status);
     }
 }

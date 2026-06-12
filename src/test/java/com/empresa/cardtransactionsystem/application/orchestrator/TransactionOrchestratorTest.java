@@ -4,9 +4,13 @@ import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardDataReque
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.CardTransactionRequest;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.mapper.CardDataMapper;
 import com.empresa.cardtransactionsystem.application.usecase.IdempotencyService;
+import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardData;
+import com.empresa.cardtransactionsystem.domain.model.CardNumber;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
+import com.empresa.cardtransactionsystem.domain.model.Cvv;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
+import com.empresa.cardtransactionsystem.domain.model.GeoLocation;
 import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TraceparentExtractor;
 import com.empresa.cardtransactionsystem.adapters.outbound.observability.TransactionMetrics;
@@ -16,6 +20,7 @@ import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublishe
 import com.empresa.cardtransactionsystem.domain.ports.output.SagaStarterPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
 import com.empresa.cardtransactionsystem.domain.service.CardValidationService;
+import com.empresa.cardtransactionsystem.domain.service.GeoLocationRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,22 +50,28 @@ class TransactionOrchestratorTest {
     @Mock private CallbackNotifierPort callbackNotifier;
     @Mock private TraceparentExtractor traceparentExtractor;
     @Mock private TransactionMetrics metrics;
+    @Mock private GeoLocationRegistry geoLocationRegistry;
     @Mock private CardDataMapper cardDataMapper;
-
 
     private TransactionOrchestrator orchestrator;
 
     private static final CardToken TOKEN = new CardToken("token-uuid");
+    private static final GeoLocation DEFAULT_LOCATION = new GeoLocation("DEFAULT", "São Paulo", "BR", -23.5, -46.6, "LOW");
 
     @BeforeEach
     void setUp() {
         orchestrator = new TransactionOrchestrator(
                 sagaStarterPort, transactionRepository,
                 cardValidationService, idempotencyService, cachePort,
-                eventPublisher, callbackNotifier, traceparentExtractor, metrics, 80,cardDataMapper);
+                eventPublisher, callbackNotifier, traceparentExtractor, metrics,
+                geoLocationRegistry, 80, cardDataMapper);
+        lenient().when(cardDataMapper.toDomain(any())).thenReturn(
+                new CardData(new CardNumber("4111111111111111"), new Cvv("123"), "John Doe", Brand.VISA));
         lenient().when(cardValidationService.tokenize(any(CardData.class))).thenReturn(TOKEN);
         lenient().when(idempotencyService.check(anyString())).thenReturn(Optional.empty());
         lenient().when(cachePort.getFraudScore(any())).thenReturn(Optional.empty());
+        lenient().when(geoLocationRegistry.random()).thenReturn(DEFAULT_LOCATION);
+        lenient().when(geoLocationRegistry.findByCode(any())).thenReturn(Optional.of(DEFAULT_LOCATION));
     }
 
     @Test
@@ -130,7 +141,7 @@ class TransactionOrchestratorTest {
         return new CardTransactionRequest(
                 "TXN-001", uuid,
                 new CardDataRequest("4111111111111111", "123", "John Doe", "VISA"),
-                new BigDecimal("500.00"), 3, null
+                new BigDecimal("500.00"), 3, null, null
         );
     }
 }

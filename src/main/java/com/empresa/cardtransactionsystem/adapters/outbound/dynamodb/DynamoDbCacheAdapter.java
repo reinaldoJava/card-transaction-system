@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.CacheDdbEntity;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
@@ -51,13 +52,7 @@ public class DynamoDbCacheAdapter implements CachePort {
             String cacheKey = "FRAUD#" + cardToken.value();
             String value = objectMapper.writeValueAsString(score);
             long expiresAt = Instant.now().getEpochSecond() + CACHE_TTL_SECONDS;
-
-            CacheDdbEntity entity = new CacheDdbEntity();
-            entity.setCacheKey(cacheKey);
-            entity.setValue(value);
-            entity.setExpiresAt(expiresAt);
-
-            cacheTable.putItem(entity);
+            cacheTable.putItem(new CacheDdbEntity(cacheKey, value, expiresAt));
         } catch (Exception e) {
             throw new RuntimeException("Failed to cache fraud score", e);
         }
@@ -85,12 +80,7 @@ public class DynamoDbCacheAdapter implements CachePort {
             String value = objectMapper.writeValueAsString(result);
             long expiresAt = Instant.now().getEpochSecond() + CACHE_TTL_SECONDS;
 
-            CacheDdbEntity entity = new CacheDdbEntity();
-            entity.setCacheKey(cacheKey);
-            entity.setValue(value);
-            entity.setExpiresAt(expiresAt);
-
-            cacheTable.putItem(entity);
+            cacheTable.putItem(new CacheDdbEntity(cacheKey, value, expiresAt));
         } catch (Exception e) {
             throw new RuntimeException("Failed to cache transaction result", e);
         }
@@ -117,13 +107,7 @@ public class DynamoDbCacheAdapter implements CachePort {
             String cacheKey = "PROFILE#" + cardToken.value();
             String value = objectMapper.writeValueAsString(profile);
             long expiresAt = Instant.now().getEpochSecond() + CACHE_TTL_SECONDS;
-
-            CacheDdbEntity entity = new CacheDdbEntity();
-            entity.setCacheKey(cacheKey);
-            entity.setValue(value);
-            entity.setExpiresAt(expiresAt);
-
-            cacheTable.putItem(entity);
+            cacheTable.putItem(new CacheDdbEntity(cacheKey, value, expiresAt));
         } catch (Exception e) {
             throw new RuntimeException("Failed to cache client profile", e);
         }

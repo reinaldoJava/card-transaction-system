@@ -1,10 +1,9 @@
 package com.empresa.cardtransactionsystem.application.usecase;
 
-import com.empresa.cardtransactionsystem.domain.model.Brand;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.ClientProfile;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
-import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
@@ -16,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,7 +31,7 @@ class ValidateBusinessRulesServiceTest {
 
     private ValidateBusinessRulesService service;
 
-    private static final CardToken TOKEN = new CardToken("test-token-uuid");
+    private static final CardToken TOKEN = new CardToken("tok");
     private static final ClientProfile PROFILE = new ClientProfile(
             new BigDecimal("10000.00"), new BigDecimal("0.00"), 24, new BigDecimal("0.01"), false, null);
 
@@ -83,8 +81,6 @@ class ValidateBusinessRulesServiceTest {
     }
 
     private SagaPayload payload(String amount, int installments) {
-        return new SagaPayload("TXN-001", UUID.randomUUID(), TOKEN,
-                new BigDecimal(amount), installments, Brand.VISA,
-                TransactionStatus.PENDING, LocalDateTime.now(), null ,null, null);
+        return SagaPayloadFixture.withAmount(amount, installments);
     }
 }

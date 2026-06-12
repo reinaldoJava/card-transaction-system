@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.function;
 
+import com.empresa.cardtransactionsystem.config.FunctionsConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.OpenTelemetry;
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.JwtResponse;

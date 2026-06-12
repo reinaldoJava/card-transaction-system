@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.domain.model;
 
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record GeoLocation(
