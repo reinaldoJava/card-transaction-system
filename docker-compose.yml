@@ -122,11 +122,11 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
       retries: 10
-      start_period: 20s
+      start_period: 60s
 
   ollama-setup:
     image: ollama/ollama:latest
@@ -150,12 +150,15 @@ services:
       - "127.0.0.1:3000:3000"   # Grafana UI
       - "127.0.0.1:4317:4317"   # OTLP gRPC
       - "127.0.0.1:4318:4318"   # OTLP HTTP
+    volumes:
+      - loki_data:/data/loki    # necessário no Windows/WSL2 — Loki 3.x falha sem volume persistido
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
-      start_period: 30s
+      start_period: 90s
       retries: 10
 
 volumes:
   ollama_data:
+  loki_data:

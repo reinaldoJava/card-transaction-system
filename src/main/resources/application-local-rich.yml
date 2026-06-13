@@ -16,7 +16,7 @@ spring:
       host: localhost
       port: 6379
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:19092
     consumer:
       group-id: card-transaction-system
       auto-offset-reset: earliest
@@ -45,8 +45,10 @@ management:
       probability: 1.0
   otlp:
     tracing:
-      endpoint: http://localhost:4318/v1/traces      # Grafana otel-lgtm (Tempo)
+      endpoint: http://localhost:4318/v1/traces      # Grafana otel-lgtm → Tempo
     metrics:
       export:
-        url: http://localhost:4318/v1/metrics        # Grafana otel-lgtm (Prometheus)
+        url: http://localhost:4318/v1/metrics        # Grafana otel-lgtm → Prometheus
         step: 10s
+    logging:
+      endpoint: http://localhost:4318/v1/logs        # Grafana otel-lgtm → Loki

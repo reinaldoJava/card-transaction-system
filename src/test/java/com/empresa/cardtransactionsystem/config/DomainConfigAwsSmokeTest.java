@@ -7,10 +7,8 @@ import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbTran
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbUserRepositoryAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbTransactionHistoryAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.lambda.LambdaTokenExchangeAdapter;
-import com.empresa.cardtransactionsystem.adapters.outbound.noop.NoOpAuditAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.noop.NoOpDomainEventPublisherAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.saga.StepFunctionsSagaStarterAdapter;
-import com.empresa.cardtransactionsystem.domain.ports.output.AuditSearchPort;
 import com.empresa.cardtransactionsystem.domain.ports.output.CachePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.ClientProfilePort;
 import com.empresa.cardtransactionsystem.domain.ports.output.DomainEventPublisherPort;
@@ -138,12 +136,6 @@ class DomainConfigAwsSmokeTest {
     void shouldBindDomainEventPublisherPortToNoOpAdapter() {
         assertThat(context.getBean(DomainEventPublisherPort.class))
                 .isInstanceOf(NoOpDomainEventPublisherAdapter.class);
-    }
-
-    @Test
-    void shouldBindAuditSearchPortToNoOpAdapter() {
-        assertThat(context.getBean(AuditSearchPort.class))
-                .isInstanceOf(NoOpAuditAdapter.class);
     }
 
     @Test

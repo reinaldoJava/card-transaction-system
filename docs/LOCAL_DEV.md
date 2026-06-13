@@ -55,8 +55,9 @@ A coluna "esforço" é sempre **adapter + config**. O core não muda.
   em fintech para sagas de pagamento (retry, compensação, timeouts, visibilidade). Fica atrás do
   `SagaStarterPort`.
 - **PostgreSQL (audit):** auditoria e busca de transações via `PostgresAuditAdapter` (profile
-  `ledger-postgres`) — mesma base ACID do ledger, sem dependência adicional. No perfil `aws`
-  (`ledger-dynamodb`) usa `NoOpAuditAdapter`.
+  `ledger-postgres`) — mesma base ACID do ledger, sem dependência adicional. No perfil `aws` não há
+  barramento Kafka (`queue-none`), então não há projeção de auditoria (o `AuditSearchPort` não é
+  consumido) — daí também não existir adapter de auditoria na AWS.
 - **Grafana otel-lgtm (observability):** localmente, em vez de mandar OTLP para o New Relic, aponta-se
   o exporter para a imagem **`grafana/otel-lgtm`** — um "tudo-em-um" (OTel Collector + Tempo=traces +
   Prometheus=métricas + Loki=logs + Grafana), com datasources já provisionados. **Grafana em
