@@ -92,7 +92,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9080:9080"
 
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
@@ -109,10 +109,11 @@ services:
       - "127.0.0.1:9092:9092"
       - "127.0.0.1:19092:19092"
     healthcheck:
-      test: ["CMD", "rpk", "cluster", "health"]
+      test: ["CMD-SHELL", "tctl --address localhost:7233 cluster health 2>&1 | grep -q SERVING"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      start_period: 30s
+      retries: 20
 
   ollama:
     image: ollama/ollama:latest
@@ -136,7 +137,10 @@ services:
         condition: service_healthy
     environment:
       - OLLAMA_HOST=http://ollama:11434
-    entrypoint: ["ollama", "pull", "mistral"]
+      - OLLAMA_KEEP_ALIVE=-1
+    entrypoint: ["/bin/sh","-c"]
+    command:
+      - "ollama pull mistral && ollama run mistral 'warmup' >/dev/null && echo 'mistral pronto e carregado'"
     restart: "no"
 
   # Grafana OpenTelemetry LGTM — backend OTel "tudo-em-um" para dev local
@@ -151,7 +155,9 @@ services:
       - "127.0.0.1:4317:4317"   # OTLP gRPC
       - "127.0.0.1:4318:4318"   # OTLP HTTP
     volumes:
-      - loki_data:/data/loki    # necessário no Windows/WSL2 — Loki 3.x falha sem volume persistido
+      - loki_data:/data/loki # necessário no Windows/WSL2 — Loki 3.x falha sem volume persistido
+      - ./scripts/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/dashboards.yaml
+      - ./scripts/grafana/grafana-dashboard.json:/otel-lgtm/grafana-dashboard-card-transaction-system.json
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
       interval: 10s

@@ -126,10 +126,10 @@ docker-compose down -v
 
 3. **S3 State** (criar uma única vez)
    ```bash
+   # us-east-1 e a regiao padrao do S3: NAO passar --create-bucket-configuration
    aws s3api create-bucket \
      --bucket card-transaction-system-terraform-state \
-     --region sa-east-1 \
-     --create-bucket-configuration LocationConstraint=sa-east-1
+     --region us-east-1
    ```
 
 4. **Bedrock Access** (se usar Bedrock)

@@ -1,0 +1,80 @@
+name: Deploy (AWS)
+
+# Deploy manual e controlado. Sem chaves de acesso: autenticacao via OIDC.
+# Segredos sensiveis vem de GitHub Secrets (TF_VAR_*), nunca do repositorio.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action"
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+permissions:
+  id-token: write   # necessario para o OIDC com a AWS
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_IN_AUTOMATION: "true"
+
+concurrency:
+  group: deploy-aws
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Terraform ${{ github.event.inputs.action }}
+    runs-on: ubuntu-latest
+    environment: production   # protecao por required reviewers (configurar no GitHub)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Build Lambda jar
+        run: ./mvnw -B -ntp clean package -DskipTests
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        env:
+          TF_VAR_jwt_secret: ${{ secrets.TF_VAR_JWT_SECRET }}
+          TF_VAR_nr_license_key: ${{ secrets.TF_VAR_NR_LICENSE_KEY }}
+          TF_VAR_nr_account_id: ${{ secrets.TF_VAR_NR_ACCOUNT_ID }}
+          TF_VAR_nr_api_key: ${{ secrets.TF_VAR_NR_API_KEY }}
+        run: terraform plan -input=false -lock-timeout=120s -out=tfplan
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: terraform
+        env:
+          TF_VAR_jwt_secret: ${{ secrets.TF_VAR_JWT_SECRET }}
+          TF_VAR_nr_license_key: ${{ secrets.TF_VAR_NR_LICENSE_KEY }}
+          TF_VAR_nr_account_id: ${{ secrets.TF_VAR_NR_ACCOUNT_ID }}
+          TF_VAR_nr_api_key: ${{ secrets.TF_VAR_NR_API_KEY }}
+        run: terraform apply -input=false -lock-timeout=120s tfplan

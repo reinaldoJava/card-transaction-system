@@ -36,11 +36,11 @@ terraform/
 
 4. **S3 bucket** para Terraform state (criar uma única vez)
    ```bash
+   # us-east-1 e a regiao padrao do S3: NAO passar --create-bucket-configuration
    aws s3api create-bucket \
      --bucket card-transaction-system-terraform-state \
-     --region sa-east-1 \
-     --create-bucket-configuration LocationConstraint=sa-east-1
-   
+     --region us-east-1
+
    aws s3api put-bucket-versioning \
      --bucket card-transaction-system-terraform-state \
      --versioning-configuration Status=Enabled
@@ -53,7 +53,7 @@ terraform/
      --attribute-definitions AttributeName=LockID,AttributeType=S \
      --key-schema AttributeName=LockID,KeyType=HASH \
      --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
-     --region sa-east-1
+     --region us-east-1
    ```
 
 ## Deploy
@@ -98,11 +98,11 @@ Terraform vai:
 Após `terraform apply`, você terá:
 
 ```
-process_transaction_url = https://xxx.lambda-url.sa-east-1.on.aws
-login_url               = https://yyy.lambda-url.sa-east-1.on.aws
-token_exchange_url      = https://zzz.lambda-url.sa-east-1.on.aws
-validation_queue_url    = https://sqs.sa-east-1.amazonaws.com/...
-result_queue_url        = https://sqs.sa-east-1.amazonaws.com/...
+process_transaction_url = https://xxx.lambda-url.us-east-1.on.aws
+login_url               = https://yyy.lambda-url.us-east-1.on.aws
+token_exchange_url      = https://zzz.lambda-url.us-east-1.on.aws
+validation_queue_url    = https://sqs.us-east-1.amazonaws.com/...
+result_queue_url        = https://sqs.us-east-1.amazonaws.com/...
 ```
 
 ## Arquitetura
@@ -132,7 +132,7 @@ Internamente:
 
 | Variável | Descrição | Default |
 |----------|-----------|---------|
-| `aws_region` | Região AWS | sa-east-1 |
+| `aws_region` | Região AWS | us-east-1 |
 | `lambda_memory` | Memória Lambda (MB) | 512 |
 | `lambda_timeout` | Timeout Lambda (s) | 30 |
 | `bedrock_model_id` | Modelo Bedrock | claude-haiku |

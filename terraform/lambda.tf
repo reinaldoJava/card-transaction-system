@@ -31,7 +31,6 @@ resource "aws_lambda_function" "process_transaction" {
     variables = merge(local.otel_common, {
       SPRING_CLOUD_FUNCTION_DEFINITION = "processTransactionFunction"
       SPRING_PROFILES_ACTIVE           = "!local"
-      AWS_REGION                       = var.aws_region
       JWT_SECRET_SSM_PATH              = aws_ssm_parameter.jwt_secret.name
       JWT_EXPIRATION_HOURS             = var.jwt_expiration_hours
       STEP_FUNCTIONS_STATE_MACHINE_ARN = aws_sfn_state_machine.transaction_saga.arn
@@ -80,7 +79,6 @@ resource "aws_lambda_function" "login" {
     variables = merge(local.otel_common, {
       SPRING_CLOUD_FUNCTION_DEFINITION = "loginFunction"
       SPRING_PROFILES_ACTIVE           = "!local"
-      AWS_REGION                       = var.aws_region
       JWT_SECRET_SSM_PATH              = aws_ssm_parameter.jwt_secret.name
       JWT_EXPIRATION_HOURS             = var.jwt_expiration_hours
       OTEL_SERVICE_NAME                = "${var.project_name}-login"
@@ -126,7 +124,6 @@ resource "aws_lambda_function" "token_exchange" {
     variables = merge(local.otel_common, {
       SPRING_CLOUD_FUNCTION_DEFINITION = "tokenExchange"
       SPRING_PROFILES_ACTIVE           = "!local"
-      AWS_REGION                       = var.aws_region
       JWT_SECRET_SSM_PATH              = aws_ssm_parameter.jwt_secret.name
       JWT_EXPIRATION_HOURS             = var.jwt_expiration_hours
       OTEL_SERVICE_NAME                = "${var.project_name}-token-exchange"
@@ -171,7 +168,6 @@ resource "aws_lambda_function" "get_status" {
     variables = merge(local.otel_common, {
       SPRING_CLOUD_FUNCTION_DEFINITION = "getStatusFunction"
       SPRING_PROFILES_ACTIVE           = "!local"
-      AWS_REGION                       = var.aws_region
       JWT_SECRET_SSM_PATH              = aws_ssm_parameter.jwt_secret.name
       JWT_EXPIRATION_HOURS             = var.jwt_expiration_hours
       OTEL_SERVICE_NAME                = "${var.project_name}-get-status"

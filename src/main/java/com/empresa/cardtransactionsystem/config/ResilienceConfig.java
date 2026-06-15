@@ -3,6 +3,8 @@ package com.empresa.cardtransactionsystem.config;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.micrometer.tagged.TaggedCircuitBreakerMetrics;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +35,15 @@ public class ResilienceConfig {
                 .automaticTransitionFromOpenToHalfOpenEnabled(true)
                 .build();
         return CircuitBreakerRegistry.of(config);
+    }
+
+    @Bean
+    public TaggedCircuitBreakerMetrics circuitBreakerMetrics(
+            CircuitBreakerRegistry registry, MeterRegistry meterRegistry) {
+        TaggedCircuitBreakerMetrics metrics =
+                TaggedCircuitBreakerMetrics.ofCircuitBreakerRegistry(registry);
+        metrics.bindTo(meterRegistry);
+        return metrics;
     }
 
     @Bean(name = "ollamaFraudCircuitBreaker")

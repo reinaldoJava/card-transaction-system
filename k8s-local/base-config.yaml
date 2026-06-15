@@ -26,7 +26,10 @@ metadata:
   name: app-secrets
   namespace: card-system
 type: Opaque
-data:
-  # Valores em base64 (exemplo: 'postgres' e 'dev-secret...')
-  DB_PASSWORD: cG9zdGdyZXM=
-  JWT_SECRET: ZGV2LXNlY3JldC1rZXktMzItY2hhcnMtbWluaW11bS1uZWVkZWQ=
+stringData:
+  # PLACEHOLDERS — segredos reais NUNCA entram no repositorio (base64 nao e criptografia).
+  # Preencha localmente antes do apply, ou crie o Secret fora do git:
+  #   kubectl -n card-system create secret generic app-secrets \
+  #     --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
+  DB_PASSWORD: "CHANGE_ME"
+  JWT_SECRET: "CHANGE_ME_32_CHARS_MINIMUM_NEEDED"

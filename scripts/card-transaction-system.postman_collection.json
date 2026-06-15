@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Card Transaction System",
-    "description": "## Pré-requisitos\n\n**Local (local-rich):**\n```\ndocker-compose up -d\nSPRING_PROFILES_ACTIVE=local-rich ./mvnw spring-boot:run\n```\nSelecione o environment **local-rich**.\n\n**AWS:** preencha `baseUrl` no environment **aws** com a Function URL do Lambda.\n\n---\n\n## Campo `locationCode`\nTodas as transações enviam um `locationCode` (código do GeoLocationRegistry).\nO sistema compara com o `homeLocationCode` do perfil do cliente para detectar\noperações geograficamente implausíveis.\n\nCódigos disponíveis: `SAO_PAULO_CENTRO`, `TOKYO`, `NORTH_POLE`, `ATLANTIC_OCEAN_MID`, etc.\nVeja `src/main/resources/geo/test-locations.json` para a lista completa (52 locais).\n\nPerfis de seed (`home_location_code = SAO_PAULO_CENTRO` para todos os cartões de teste).\n\n---\n\n## Fluxo\n1. Execute **Auth / Login** → `token` é salvo automaticamente\n2. Execute os pares `Xa → Xb` de cada cenário\n3. O `correlationId` é propagado automaticamente",
+    "description": "## Pré-requisitos\n\n**Local (local-rich):**\n```\ndocker-compose up -d\nSPRING_PROFILES_ACTIVE=local-rich ./mvnw spring-boot:run\n```\nSelecione o environment **local-rich**.\n\n**AWS:** preencha `baseUrl` no environment **aws** com a Function URL do Lambda.\n\n---\n\n## Campo `locationCode`\nTodas as transações enviam um `locationCode` (código do GeoLocationRegistry).\nO sistema compara com o `homeLocationCode` do perfil do cliente para detectar\noperações geograficamente implausíveis.\n\nCódigos disponíveis: `SAO_PAULO_CENTRO`, `TOKYO`, `NORTH_POLE`, `ATLANTIC_OCEAN_MID`, etc.\nVeja `src/main/resources/geo/test-locations.json` para a lista completa (52 locais).\n\nPerfis de seed (`home_location_code = SAO_PAULO_CENTRO` para todos os cartões de teste).\n\n---\n\n## Fluxo\n1. Execute **Auth / Login** → `token` é salvo automaticamente\n2. Execute os pares `Xa → Xb` de cada cenário\n3. O `correlationId` é propagado automaticamente\n\n## Stress Test\n- `uuidTransaction` gerado aleatoriamente por request (via `{{$randomUUID}}`)\n- `transactionId` sequencial por cenário via contador de environment\n- Rode o runner na pasta do cenário desejado com N iterações",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -10,11 +10,28 @@
       "item": [
         {
           "name": "Login",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","pm.test('Token presente', () => { pm.expect(json.token).to.be.a('string').and.not.empty; });","pm.environment.set('token', json.token);"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Token presente', () => { pm.expect(json.token).to.be.a('string').and.not.empty; });",
+                  "pm.environment.set('token', json.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/auth/login"
           }
         }
@@ -22,27 +39,72 @@
     },
     {
       "name": "Cenário 1 — Caminho Feliz (geo: mesma cidade)",
-      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 500 / 3x | locationCode: SAO_PAULO_PAULISTA\n**Resultado:** APPROVED — sem penalidade geo (mesma cidade)",
+      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 500 / 3x | locationCode: SAO_PAULO_PAULISTA\n**Resultado:** APPROVED — sem penalidade geo (mesma cidade)\n\n`uuidTransaction` gerado aleatoriamente. `transactionId` sequencial via `txn_happy_counter`.",
       "item": [
         {
           "name": "1a. POST /process",
           "event": [
-            {"listen": "prerequest","script": {"exec": ["if (!pm.environment.get('token')) console.warn('Execute Auth/Login primeiro');"],"type": "text/javascript"}},
-            {"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","pm.test('correlationId presente', () => { pm.expect(json.correlationId).to.be.a('string').and.not.empty; });","pm.environment.set('correlationId_happy', json.correlationId);","console.log('correlationId salvo:', json.correlationId);"],"type": "text/javascript"}}
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (!pm.environment.get('token')) console.warn('Execute Auth/Login primeiro');",
+                  "const c = parseInt(pm.environment.get('txn_happy_counter') || '0') + 1;",
+                  "pm.environment.set('txn_happy_counter', c);",
+                  "pm.environment.set('txn_happy_id', 'txn-happy-' + String(c).padStart(4, '0'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "pm.test('correlationId presente', () => { pm.expect(json.correlationId).to.be.a('string').and.not.empty; });",
+                  "pm.environment.set('correlationId_happy', json.correlationId);",
+                  "console.log('iter=' + pm.environment.get('txn_happy_counter') + ' txnId=' + pm.environment.get('txn_happy_id') + ' correlationId=' + json.correlationId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
           ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-happy-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000001\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 3,\n    \"locationCode\": \"SAO_PAULO_PAULISTA\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_happy_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 3,\n    \"locationCode\": \"SAO_PAULO_PAULISTA\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process"
           }
         },
         {
           "name": "1b. GET /status → APPROVED",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","console.log('status:', json.status, '| reason:', json.reason);","pm.test('Status válido', () => { pm.expect(json.status).to.be.oneOf(['PENDING','APPROVED','REJECTED']); });","if (json.status !== 'PENDING') { pm.test('APPROVED', () => { pm.expect(json.status).to.eql('APPROVED'); }); } else { console.warn('Ainda PENDING — reenvie em alguns segundos.'); }"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "console.log('status:', json.status, '| reason:', json.reason);",
+                  "pm.test('Status válido', () => { pm.expect(json.status).to.be.oneOf(['PENDING','APPROVED','REJECTED']); });",
+                  "if (json.status !== 'PENDING') {",
+                  "    pm.test('APPROVED', () => { pm.expect(json.status).to.eql('APPROVED'); });",
+                  "} else {",
+                  "    console.warn('Ainda PENDING — workflow em andamento.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
             "url": "{{baseUrl}}/status/{{correlationId_happy}}"
           }
@@ -51,24 +113,69 @@
     },
     {
       "name": "Cenário 2 — Transação Negada (crédito insuficiente)",
-      "description": "**Cartão:** MASTER 5500005555555559 | home: SAO_PAULO_CENTRO\n**Request:** R$ 200 / 1x | locationCode: RIO_DE_JANEIRO_CENTRO\n**Resultado:** REJECTED (crédito insuficiente — R$ 10 disponível)",
+      "description": "**Cartão:** MASTER 5500005555555559 | home: SAO_PAULO_CENTRO\n**Request:** R$ 200 / 1x | locationCode: RIO_DE_JANEIRO_CENTRO\n**Resultado:** REJECTED (crédito insuficiente — R$ 10 disponível)\n\n`uuidTransaction` gerado aleatoriamente. `transactionId` sequencial via `txn_denied_counter`.",
       "item": [
         {
           "name": "2a. POST /process",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","pm.environment.set('correlationId_denied', json.correlationId);","console.log('correlationId salvo:', json.correlationId);"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const c = parseInt(pm.environment.get('txn_denied_counter') || '0') + 1;",
+                  "pm.environment.set('txn_denied_counter', c);",
+                  "pm.environment.set('txn_denied_id', 'txn-denied-' + String(c).padStart(4, '0'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('correlationId_denied', json.correlationId);",
+                  "console.log('iter=' + pm.environment.get('txn_denied_counter') + ' correlationId=' + json.correlationId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-denied-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000002\",\n    \"cardDataRequest\": {\n        \"number\": \"5500005555555559\",\n        \"cvv\": \"321\",\n        \"brand\": \"MASTER\",\n        \"name\": \"MARIA SOUZA\"\n    },\n    \"amount\": 200.00,\n    \"installments\": 1,\n    \"locationCode\": \"RIO_DE_JANEIRO_CENTRO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_denied_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"5500005555555559\",\n        \"cvv\": \"321\",\n        \"brand\": \"MASTER\",\n        \"name\": \"MARIA SOUZA\"\n    },\n    \"amount\": 200.00,\n    \"installments\": 1,\n    \"locationCode\": \"RIO_DE_JANEIRO_CENTRO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process"
           }
         },
         {
           "name": "2b. GET /status → REJECTED (crédito)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","console.log('status:', json.status, '| reason:', json.reason);","if (json.status !== 'PENDING') { pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); }); } else { console.warn('Ainda PENDING — reenvie.'); }"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "console.log('status:', json.status, '| reason:', json.reason);",
+                  "if (json.status !== 'PENDING') {",
+                  "    pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); });",
+                  "} else {",
+                  "    console.warn('Ainda PENDING — reenvie.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
             "url": "{{baseUrl}}/status/{{correlationId_denied}}"
           }
@@ -77,24 +184,67 @@
     },
     {
       "name": "Cenário 3 — Bloqueada por Fraude (cache Redis)",
-      "description": "**Cartão:** VISA 4000000000000002 | home: SAO_PAULO_CENTRO\n**Cache Redis:** FRAUD:acd08f29... = score 95 (seed automático)\n**Request:** R$ 100 / 1x | locationCode: SAO_PAULO_CENTRO\n**Resultado:** REJECTED imediato (score 95 ≥ threshold 80)",
+      "description": "**Cartão:** VISA 4000000000000002 | home: SAO_PAULO_CENTRO\n**Cache Redis:** FRAUD:acd08f29... = score 95 (seed automático)\n**Request:** R$ 100 / 1x | locationCode: SAO_PAULO_CENTRO\n**Resultado:** REJECTED imediato (score 95 ≥ threshold 80)\n\nNota: idempotência ativa a partir da 2ª iteração (mesmo cartão, Redis já bloqueado). `transactionId` sequencial garante nova entrada no DB.",
       "item": [
         {
           "name": "3a. POST /process",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","pm.environment.set('correlationId_fraud', json.correlationId);","console.log('correlationId salvo:', json.correlationId);"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const c = parseInt(pm.environment.get('txn_fraud_counter') || '0') + 1;",
+                  "pm.environment.set('txn_fraud_counter', c);",
+                  "pm.environment.set('txn_fraud_id', 'txn-fraud-' + String(c).padStart(4, '0'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('correlationId_fraud', json.correlationId);",
+                  "console.log('iter=' + pm.environment.get('txn_fraud_counter') + ' correlationId=' + json.correlationId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-fraud-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000003\",\n    \"cardDataRequest\": {\n        \"number\": \"4000000000000002\",\n        \"cvv\": \"999\",\n        \"brand\": \"VISA\",\n        \"name\": \"CARLOS FRAUDE\"\n    },\n    \"amount\": 100.00,\n    \"installments\": 1,\n    \"locationCode\": \"SAO_PAULO_CENTRO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_fraud_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"4000000000000002\",\n        \"cvv\": \"999\",\n        \"brand\": \"VISA\",\n        \"name\": \"CARLOS FRAUDE\"\n    },\n    \"amount\": 100.00,\n    \"installments\": 1,\n    \"locationCode\": \"SAO_PAULO_CENTRO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process"
           }
         },
         {
           "name": "3b. GET /status → REJECTED (fraude cache)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","console.log('status:', json.status, '| reason:', json.reason);","if (json.status !== 'PENDING') { pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); }); }"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "console.log('status:', json.status, '| reason:', json.reason);",
+                  "if (json.status !== 'PENDING') {",
+                  "    pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
             "url": "{{baseUrl}}/status/{{correlationId_fraud}}",
             "description": "Rejeição no orquestrador (score Redis ≥ 80) — deve ser REJECTED imediatamente."
@@ -104,25 +254,70 @@
     },
     {
       "name": "Cenário 4 — Fraude Geo (São Paulo → Tóquio)",
-      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 3.000 / 1x | locationCode: TOKYO\n**Resultado:** REJECTED — penalidade geo +30 (continente diferente, ~18.500 km)\n\nRequer profile fraud-ollama ou fraud-bedrock. Com fraud-fallback as regras estáticas também aplicam penalidade geo.",
+      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 3.000 / 1x | locationCode: TOKYO\n**Resultado:** REJECTED — penalidade geo +30 (continente diferente, ~18.500 km)\n\nRequer profile fraud-ollama ou fraud-bedrock. Com fraud-fallback as regras estáticas também aplicam penalidade geo.\n`uuidTransaction` gerado aleatoriamente. `transactionId` sequencial via `txn_geo_counter`.",
       "item": [
         {
           "name": "4a. POST /process",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","pm.environment.set('correlationId_geo', json.correlationId);","console.log('correlationId salvo:', json.correlationId);"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const c = parseInt(pm.environment.get('txn_geo_counter') || '0') + 1;",
+                  "pm.environment.set('txn_geo_counter', c);",
+                  "pm.environment.set('txn_geo_id', 'txn-geo-' + String(c).padStart(4, '0'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('correlationId_geo', json.correlationId);",
+                  "console.log('iter=' + pm.environment.get('txn_geo_counter') + ' correlationId=' + json.correlationId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-geo-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000004\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 3000.00,\n    \"installments\": 1,\n    \"locationCode\": \"TOKYO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_geo_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 3000.00,\n    \"installments\": 1,\n    \"locationCode\": \"TOKYO\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process",
             "description": "home=SAO_PAULO_CENTRO → tx=TOKYO: ~18.500 km, continentes diferentes → +30 pts geo + valor alto."
           }
         },
         {
           "name": "4b. GET /status → REJECTED (geo)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","console.log('status:', json.status, '| reason:', json.reason);","if (json.status !== 'PENDING') { pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); }); } else { console.warn('Ainda PENDING — reenvie.'); }"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "console.log('status:', json.status, '| reason:', json.reason);",
+                  "if (json.status !== 'PENDING') {",
+                  "    pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); });",
+                  "} else {",
+                  "    console.warn('Ainda PENDING — reenvie.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
             "url": "{{baseUrl}}/status/{{correlationId_geo}}"
           }
@@ -131,24 +326,67 @@
     },
     {
       "name": "Cenário 5 — Localização Implausível (Polo Norte)",
-      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 500 / 1x | locationCode: NORTH_POLE\n**Resultado:** REJECTED — risk_hint 'inabitado/implausível' → +40 pts no rubric",
+      "description": "**Cartão:** VISA 4111111111111111 | home: SAO_PAULO_CENTRO\n**Request:** R$ 500 / 1x | locationCode: NORTH_POLE\n**Resultado:** REJECTED — risk_hint 'inabitado/implausível' → +40 pts no rubric\n\n`uuidTransaction` gerado aleatoriamente. `transactionId` sequencial via `txn_implausible_counter`.",
       "item": [
         {
           "name": "5a. POST /process",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","pm.environment.set('correlationId_implausible', json.correlationId);","console.log('correlationId salvo:', json.correlationId);"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const c = parseInt(pm.environment.get('txn_implausible_counter') || '0') + 1;",
+                  "pm.environment.set('txn_implausible_counter', c);",
+                  "pm.environment.set('txn_implausible_id', 'txn-implausible-' + String(c).padStart(4, '0'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "pm.environment.set('correlationId_implausible', json.correlationId);",
+                  "console.log('iter=' + pm.environment.get('txn_implausible_counter') + ' correlationId=' + json.correlationId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-implausible-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000005\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 1,\n    \"locationCode\": \"NORTH_POLE\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_implausible_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 1,\n    \"locationCode\": \"NORTH_POLE\",\n    \"callbackUrl\": \"{{webhookUrl}}\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process"
           }
         },
         {
           "name": "5b. GET /status → REJECTED (implausível)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 200', () => pm.response.to.have.status(200));","const json = pm.response.json();","console.log('status:', json.status, '| reason:', json.reason);","if (json.status !== 'PENDING') { pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); }); }"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "console.log('status:', json.status, '| reason:', json.reason);",
+                  "if (json.status !== 'PENDING') {",
+                  "    pm.test('REJECTED', () => { pm.expect(json.status).to.eql('REJECTED'); });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
             "url": "{{baseUrl}}/status/{{correlationId_implausible}}"
           }
@@ -161,32 +399,121 @@
         {
           "name": "GET /status por ID manual",
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "GET",
-            "url": {"raw": "{{baseUrl}}/status/:correlationId","host": ["{{baseUrl}}"],"path": ["status",":correlationId"],"variable": [{"key": "correlationId","value": "","description": "Cole o correlationId aqui"}]}
+            "url": {
+              "raw": "{{baseUrl}}/status/:correlationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["status", ":correlationId"],
+              "variable": [{"key": "correlationId", "value": "", "description": "Cole o correlationId aqui"}]
+            }
           }
         },
         {
-          "name": "POST /process — idempotência (reenvio txn-happy-001)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 202', () => pm.response.to.have.status(202));","const json = pm.response.json();","const original = pm.environment.get('correlationId_happy');","if (original) { pm.test('Mesmo correlationId (idempotente)', () => { pm.expect(json.correlationId).to.eql(original); }); } else { console.warn('Execute Cenário 1 antes.'); }"],"type": "text/javascript"}}],
+          "name": "POST /process — idempotência (reenvio)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Reutiliza o último txn_happy_id para testar idempotência.",
+                  "// Se não existir, usa fallback estático.",
+                  "if (!pm.environment.get('txn_happy_id')) {",
+                  "    pm.environment.set('txn_happy_id', 'txn-happy-0001');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));",
+                  "const json = pm.response.json();",
+                  "const original = pm.environment.get('correlationId_happy');",
+                  "if (original) {",
+                  "    pm.test('Mesmo correlationId (idempotente)', () => { pm.expect(json.correlationId).to.eql(original); });",
+                  "} else {",
+                  "    console.warn('Execute Cenário 1 antes.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"txn-happy-001\",\n    \"uuidTransaction\": \"00000000-0000-0000-0000-000000000001\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 3,\n    \"locationCode\": \"SAO_PAULO_PAULISTA\",\n    \"callbackUrl\": null\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"{{txn_happy_id}}\",\n    \"uuidTransaction\": \"{{$randomUUID}}\",\n    \"cardDataRequest\": {\n        \"number\": \"4111111111111111\",\n        \"cvv\": \"123\",\n        \"brand\": \"VISA\",\n        \"name\": \"JOAO DA SILVA\"\n    },\n    \"amount\": 500.00,\n    \"installments\": 3,\n    \"locationCode\": \"SAO_PAULO_PAULISTA\",\n    \"callbackUrl\": null\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process",
-            "description": "Reenvia a mesma transactionId do Cenário 1. Deve retornar o mesmo correlationId."
+            "description": "Reenvia o último transactionId do Cenário 1. Deve retornar o mesmo correlationId."
           }
         },
         {
           "name": "POST /process — validação (body inválido)",
-          "event": [{"listen": "test","script": {"exec": ["pm.test('Status 400', () => pm.response.to.have.status(400));","const json = pm.response.json();","pm.test('Erro de validação', () => { pm.expect(json.error).to.eql('Validation Failed'); });","pm.test('Fields preenchidos', () => { pm.expect(json.fields).to.be.an('array').and.not.empty; });"],"type": "text/javascript"}}],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "const json = pm.response.json();",
+                  "pm.test('Erro de validação', () => { pm.expect(json.error).to.eql('Validation Failed'); });",
+                  "pm.test('Fields preenchidos', () => { pm.expect(json.fields).to.be.an('array').and.not.empty; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
-            "auth": {"type": "bearer","bearer": [{"key": "token","value": "{{token}}","type": "string"}]},
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{token}}", "type": "string"}]},
             "method": "POST",
-            "header": [{"key": "Content-Type","value": "application/json"}],
-            "body": {"mode": "raw","raw": "{\n    \"transactionId\": \"\",\n    \"amount\": -1,\n    \"installments\": 99\n}","options": {"raw": {"language": "json"}}},
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"transactionId\": \"\",\n    \"amount\": -1,\n    \"installments\": 99\n}",
+              "options": {"raw": {"language": "json"}}
+            },
             "url": "{{baseUrl}}/process"
+          }
+        },
+        {
+          "name": "Reset Contadores",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "['txn_happy_counter','txn_denied_counter','txn_fraud_counter','txn_geo_counter','txn_implausible_counter'].forEach(k => pm.environment.set(k, 0));",
+                  "console.log('Contadores zerados.');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contadores zerados', () => {",
+                  "    ['txn_happy_counter','txn_denied_counter','txn_fraud_counter','txn_geo_counter','txn_implausible_counter'].forEach(k => {",
+                  "        pm.expect(parseInt(pm.environment.get(k))).to.eql(0);",
+                  "    });",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "Request dummy para executar o pre-request de reset. Aproveita para checar health da app."
           }
         }
       ]
