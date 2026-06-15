@@ -16,7 +16,7 @@ A autorização é **assíncrona** para não pagar Lambda ociosa:
 
 Premissas de custo (conta com free tier de 12 meses expirado, mas *always-free* intacto): só serviços sempre-gratuitos (Lambda, DynamoDB, Step Functions Standard, SSM, 100GB/mês de egress). **Único item pago: Bedrock** — e no perfil local ele é substituído por Ollama/Mistral via feature flag.
 
-> ⚠️ **Limitação conhecida:** o `GET /status/{correlationId}` existe como controller REST (funciona local), mas **ainda não está publicado na AWS** — só há Function URL para `process`, `login` e `token-exchange`. Para o fluxo assíncrono ponta-a-ponta em produção, falta adicionar uma `statusFunction` + Lambda URL. Veja o Roadmap.
+> ℹ️ **Retorno ao cliente:** o resultado pode ser consultado por **polling** em `GET /status/{correlationId}` (publicado na AWS via `getStatusFunction` + Lambda URL) **ou** recebido por **webhook** — se a transação enviar `callbackUrl`, o `UpdateStatus` faz um `POST` assinado (HMAC) com o resultado.
 
 ---
 
@@ -34,7 +34,7 @@ cd card-transaction-system
 
 ./mvnw clean package                 # build
 docker-compose up -d                 # LocalStack (AWS) + Ollama (fraude local)
-./mvnw clean test                    # testes (108 testes)
+./mvnw clean test                    # suíte de testes (unit + integração via Testcontainers)
 open target/site/jacoco/index.html   # coverage
 ```
 
@@ -103,7 +103,7 @@ curl http://localhost:8080/status/550e8400-e29b-41d4-a716-446655440000
 `status` ∈ `PENDING | APPROVED | REJECTED`.
 
 ### Spring Cloud Functions (Lambda)
-`tokenExchange` · `loginFunction` · `processTransactionFunction` · `validateBusinessRulesFunction` · `validateTransactionFunction` · `fraudAnalysisFunction` · `updateStatusFunction` · `compensationFunction`.
+`tokenExchange` · `loginFunction` · `processTransactionFunction` · `getStatusFunction` · `validateBusinessRulesFunction` · `validateTransactionFunction` · `fraudAnalysisFunction` · `updateStatusFunction` · `compensationFunction`.
 
 Cada function é embrulhada por um wrapper que faz **force flush** de traces e métricas antes do *freeze* do Lambda.
 
@@ -192,7 +192,7 @@ src/main/resources/
 - **Hexagonal:** domínio isolado de frameworks; ports + adapters; troca local ↔ AWS por profile.
 - **DDD:** Value Objects imutáveis com validação no compact constructor; sem modelo anêmico.
 - **Saga assíncrona:** orquestrador único + `SagaStarterPort`; saga no Step Functions Standard; compensação por `Catch`.
-- **TDD:** 108 testes (unidade + integração com LocalStack/Testcontainers).
+- **TDD:** suíte de testes de unidade + integração (LocalStack/Testcontainers).
 
 ---
 

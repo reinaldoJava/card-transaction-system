@@ -3,10 +3,10 @@ package com.empresa.cardtransactionsystem.adapters.inbound.rest;
 import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
-import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,12 +20,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(StatusController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("StatusController")
 class StatusControllerTest {
 
     @Autowired MockMvc mockMvc;
     @MockitoBean GetTransactionStatusUseCase getTransactionStatusUseCase;
-    @MockitoBean Tracer tracer;
 
     @Test
     @DisplayName("should return 200 with APPROVED status when transaction exists")

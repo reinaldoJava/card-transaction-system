@@ -19,6 +19,7 @@ import com.empresa.cardtransactionsystem.domain.model.TransactionResult;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
 import com.empresa.cardtransactionsystem.domain.model.ValidationResult;
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
+import com.empresa.cardtransactionsystem.domain.ports.input.FraudFallbackUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.CompensationUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.GetTransactionStatusUseCase;
 import com.empresa.cardtransactionsystem.domain.ports.input.LoginUseCase;
@@ -86,11 +87,17 @@ public class FunctionsConfig {
     @Bean
     public Function<SagaPayload, FraudScore> fraudAnalysisFunction(
             AnalyzeFraudUseCase analyzeFraudUseCase,
+            FraudFallbackUseCase fraudFallbackUseCase,
             TraceparentExtractor traceparentExtractor,
             TransactionMetrics metrics) {
         return wrapFn(payload -> {
             try (Scope ignored = traceparentExtractor.restore(payload.traceparent())) {
-                FraudScore score = analyzeFraudUseCase.analyze(payload);
+                FraudScore score;
+                try {
+                    score = analyzeFraudUseCase.analyze(payload);
+                } catch (Exception aiFailure) {
+                    score = fraudFallbackUseCase.evaluate(payload);
+                }
                 metrics.recordFraudScore(score.score());
                 return score;
             }

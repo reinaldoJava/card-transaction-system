@@ -200,7 +200,7 @@ services:
 2. **Kafka/Redpanda no `TransactionQueuePort`** — eventos de transação (audit/CDC/projeções).
 3. **PostgreSQL** no ledger (ACID) — ou DynamoDB Local para fidelidade ao prod.
 4. **Temporal** substituindo Step Functions na saga.
-5. **k8s (kind/k3d)** orquestrando app + infra + stack Grafana.
+5. **k8s (kind/k3d)** orquestrando app + infra + observability (`grafana/otel-lgtm`). Manifests em `k8s-local/`.
 
 ---
 

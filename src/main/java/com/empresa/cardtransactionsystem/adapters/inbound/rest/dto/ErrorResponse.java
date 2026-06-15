@@ -25,10 +25,4 @@ public record ErrorResponse(
     public ErrorResponse(int status, String error, String message, List<FieldError> fields) {
         this(Instant.now(), status, error, message, null, fields);
     }
-
-    public record FieldError(
-            String field,
-            String message,
-            Object rejectedValue
-    ) {}
 }

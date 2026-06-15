@@ -7,6 +7,7 @@ import com.empresa.cardtransactionsystem.config.FunctionsConfig;
 
 import com.empresa.cardtransactionsystem.domain.model.FraudScore;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
+import com.empresa.cardtransactionsystem.domain.ports.input.FraudFallbackUseCase;
 import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 
 import com.empresa.cardtransactionsystem.domain.ports.input.AnalyzeFraudUseCase;
@@ -38,6 +39,7 @@ class FraudAnalysisFunctionTest {
     @Mock private AnalyzeFraudUseCase analyzeFraudUseCase;
     @Mock private TraceparentExtractor traceparentExtractor;
     @Mock private TransactionMetrics metrics;
+    @Mock private FraudFallbackUseCase fraudFallbackUseCase;
 
     private Function<SagaPayload, FraudScore> function;
 
@@ -45,7 +47,7 @@ class FraudAnalysisFunctionTest {
     void setUp() {
         lenient().when(traceparentExtractor.restore(any())).thenReturn(Scope.noop());
         function = new FunctionsConfig(OpenTelemetry.noop(), new SimpleMeterRegistry())
-                .fraudAnalysisFunction(analyzeFraudUseCase, traceparentExtractor, metrics);
+                .fraudAnalysisFunction(analyzeFraudUseCase,fraudFallbackUseCase, traceparentExtractor, metrics);
     }
 
     @Test

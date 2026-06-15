@@ -2,35 +2,28 @@ package com.empresa.cardtransactionsystem.adapters.inbound.logging;
 
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import io.micrometer.tracing.Tracer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.UUID;
 
+/**
+ * Propaga o X-Correlation-ID (lê do header ou gera) e o devolve no response, e coloca
+ * correlationId/method/path no MDC durante a requisição (aparecem em todos os logs da thread).
+ *
+ * trace_id/span_id NÃO são tratados aqui — o Micrometer Tracing (bridge OTel) já injeta
+ * traceId/spanId no MDC por escopo de span, e o logback-spring.xml os mapeia para trace_id/span_id.
+ */
 @Component
 public class CorrelationIdFilter implements Filter {
 
-    private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
-
-    private final Tracer tracer;
-
-    public CorrelationIdFilter(Tracer tracer) {
-        this.tracer = tracer;
-    }
-
-    @Override
-    public void init(FilterConfig filterConfig) {
-    }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -39,27 +32,20 @@ public class CorrelationIdFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String correlationId = httpRequest.getHeader(CORRELATION_ID_HEADER);
-        if (correlationId == null || correlationId.isEmpty()) {
+        if (correlationId == null || correlationId.isBlank()) {
             correlationId = UUID.randomUUID().toString();
         }
-
-        StructuredLogger sl = StructuredLogger.of(logger, tracer, correlationId);
-        sl.addContext("method", httpRequest.getMethod());
-        sl.addContext("path", httpRequest.getRequestURI());
-
-        // Dispara o enriquecimento do MDC com os dados de contexto e telemetria
-        sl.debug("Incoming request processing started");
-
         httpResponse.setHeader(CORRELATION_ID_HEADER, correlationId);
 
+        MDC.put("correlationId", correlationId);
+        MDC.put("method", httpRequest.getMethod());
+        MDC.put("path", httpRequest.getRequestURI());
         try {
             chain.doFilter(request, response);
         } finally {
-            sl.clear();
+            MDC.remove("correlationId");
+            MDC.remove("method");
+            MDC.remove("path");
         }
-    }
-
-    @Override
-    public void destroy() {
     }
 }

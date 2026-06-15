@@ -1,6 +1,7 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.rest.handler;
 
 import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.ErrorResponse;
+import com.empresa.cardtransactionsystem.adapters.inbound.rest.dto.FieldError;
 import com.empresa.cardtransactionsystem.domain.exception.UnauthorizedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,8 +23,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidation(MethodArgumentNotValidException ex, WebRequest request) {
-        List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ErrorResponse.FieldError(
+        List<FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> new FieldError(
                         error.getField(),
                         error.getDefaultMessage(),
                         error.getRejectedValue()

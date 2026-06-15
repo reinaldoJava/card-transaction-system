@@ -1,22 +1,27 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.rest.filter;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.crypto.SecretKey;
 import java.io.IOException;
+import java.util.List;
 
-public class JwtAuthenticationFilter implements Filter {
+/**
+ * Autentica a requisição a partir de um JWT (Bearer). Apenas popula o SecurityContext quando o token
+ * é válido; NÃO responde 401 — a decisão de autorização (negar acesso a recurso protegido) é do
+ * Spring Security (anyRequest().authenticated() + AuthenticationEntryPoint padrão).
+ */
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String AUTH_PATH_PREFIX = "/auth";
 
     private final SecretKey key;
 
@@ -25,34 +30,22 @@ public class JwtAuthenticationFilter implements Filter {
     }
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
-        HttpServletRequest httpRequest = (HttpServletRequest) request;
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-
-        if (httpRequest.getRequestURI().startsWith(AUTH_PATH_PREFIX)) {
-            chain.doFilter(request, response);
-            return;
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+            throws ServletException, IOException {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)
+                && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                String token = authHeader.substring(BEARER_PREFIX.length());
+                Claims claims = Jwts.parser().verifyWith(key).build()
+                        .parseSignedClaims(token).getPayload();
+                var authentication = new UsernamePasswordAuthenticationToken(
+                        claims.getSubject(), null, List.of());
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (Exception e) {
+                SecurityContextHolder.clearContext();
+            }
         }
-
-        String authHeader = httpRequest.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith(BEARER_PREFIX)) {
-            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return;
-        }
-
-        try {
-            String token = authHeader.substring(BEARER_PREFIX.length());
-            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
-            chain.doFilter(request, response);
-        } catch (Exception e) {
-            httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        }
+        chain.doFilter(request, response);
     }
-
-    @Override
-    public void init(FilterConfig filterConfig) {}
-
-    @Override
-    public void destroy() {}
 }

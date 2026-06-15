@@ -5,8 +5,8 @@ import com.empresa.cardtransactionsystem.domain.ports.input.LoginUseCase;
 import com.empresa.cardtransactionsystem.domain.exception.UnauthorizedException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import io.micrometer.tracing.Tracer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @DisplayName("AuthController")
 class AuthControllerTest {
 
@@ -26,7 +27,6 @@ class AuthControllerTest {
     MockMvc mockMvc;
 
     @MockitoBean LoginUseCase loginUseCase;
-    @MockitoBean Tracer tracer;
 
     @Test
     @DisplayName("should return 200 with JWT when credentials are valid")

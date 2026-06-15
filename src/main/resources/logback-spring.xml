@@ -46,8 +46,19 @@
     <logger name="org.springframework.security" level="INFO"/>
     <logger name="io.opentelemetry" level="WARN"/>
 
+    <!-- Exporta logs via OTLP para o backend OTel (no local-rich, grafana/otel-lgtm -> Loki).
+         O Spring Boot instala o SDK do OpenTelemetry neste appender no startup. -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+
     <root level="${LOG_LEVEL}">
         <appender-ref ref="CONSOLE_JSON"/>
         <appender-ref ref="FILE_JSON"/>
+        <!-- OTLP de logs apenas no local-rich (Loki); em prod os logs vão para o CloudWatch -->
+        <springProfile name="local-rich">
+            <appender-ref ref="OTEL"/>
+        </springProfile>
     </root>
 </configuration>

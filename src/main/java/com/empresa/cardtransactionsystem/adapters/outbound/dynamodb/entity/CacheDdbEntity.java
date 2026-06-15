@@ -35,6 +35,8 @@ public class CacheDdbEntity {
     }
 
 
+    public CacheDdbEntity() {}
+
     public CacheDdbEntity(String cacheKey, String value, long expiresAt) {
         this.cacheKey = cacheKey;
         this.value = value;

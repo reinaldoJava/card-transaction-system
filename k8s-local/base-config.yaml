@@ -14,7 +14,11 @@ data:
   DB_URL: "jdbc:postgresql://postgres-service:5432/cards"
   KAFKA_BROKERS: "redpanda-service:9092"
   TEMPORAL_TARGET: "temporal-service:7233"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector-service:4317"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-lgtm-service:4317"
+  # Endpoints específicos do Micrometer/Spring (sobrescrevem o localhost do application-local-rich.yml)
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: "http://otel-lgtm-service:4318/v1/traces"
+  MANAGEMENT_OTLP_METRICS_EXPORT_URL: "http://otel-lgtm-service:4318/v1/metrics"
+  MANAGEMENT_OTLP_LOGGING_ENDPOINT: "http://otel-lgtm-service:4318/v1/logs"
 ---
 apiVersion: v1
 kind: Secret

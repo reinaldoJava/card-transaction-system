@@ -1,6 +1,5 @@
 package com.empresa.cardtransactionsystem.adapters.inbound.logging;
 
-import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,13 +19,11 @@ import static org.mockito.Mockito.verify;
 class CorrelationIdFilterTest {
 
     private CorrelationIdFilter filter;
-    private Tracer tracer;
     private FilterChain filterChain;
 
     @BeforeEach
     void setUp() {
-        tracer = mock(Tracer.class);
-        filter = new CorrelationIdFilter(tracer);
+        filter = new CorrelationIdFilter();
         filterChain = mock(FilterChain.class);
     }
 
