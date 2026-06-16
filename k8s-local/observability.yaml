@@ -1,0 +1,50 @@
+# Observability local — Grafana otel-lgtm (tudo-em-um): OTel Collector + Tempo + Prometheus + Loki + Grafana.
+# Substitui a stack separada (Jaeger + otel-collector + Prometheus + Grafana), alinhando ao docker-compose.
+# Recebe OTLP em 4317/4318 e expõe o Grafana em :3000 (port-forward para acessar).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-lgtm
+  namespace: card-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-lgtm
+  template:
+    metadata:
+      labels:
+        app: otel-lgtm
+    spec:
+      containers:
+        - name: otel-lgtm
+          image: grafana/otel-lgtm:0.8.1
+          ports:
+            - containerPort: 3000   # Grafana UI
+            - containerPort: 4317   # OTLP gRPC
+            - containerPort: 4318   # OTLP HTTP
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-lgtm-service
+  namespace: card-system
+spec:
+  selector:
+    app: otel-lgtm
+  ports:
+    - name: grafana
+      port: 3000
+      targetPort: 3000
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318

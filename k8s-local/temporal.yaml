@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: temporal
+  namespace: card-system
+spec:
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      containers:
+      - name: temporal
+        image: temporalio/auto-setup:1.25.2
+        env:
+        - name: DB
+          value: "postgresql"
+        - name: DB_PORT
+          value: "5432"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PWD
+          value: "postgres"
+        - name: POSTGRES_SEEDS
+          value: "postgres-service"
+        - name: DYNAMIC_CONFIG_FILE_PATH
+          value: "config/dynamicconfig/development.yaml"
+        ports:
+        - containerPort: 7233
+        - containerPort: 8233 # UI
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal-service
+  namespace: card-system
+spec:
+  selector:
+    app: temporal
+  ports:
+  - name: grpc
+    port: 7233
+  - name: ui
+    port: 8233

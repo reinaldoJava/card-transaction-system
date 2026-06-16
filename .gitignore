@@ -1,24 +1,83 @@
-# Compiled class file
+### Build output ###
+target/
+build/
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### Compiled / artifacts ###
 *.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
-*.jar
 *.war
 *.nar
 *.ear
 *.zip
 *.tar.gz
 *.rar
+*.ctxt
+.mtj.tmp/
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+# Ignora jars em geral, mas mantem o Maven Wrapper
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+### Logs ###
+*.log
+logs/
 hs_err_pid*
 replay_pid*
+
+### IDE ###
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### OS ###
+.DS_Store
+
+### LocalStack ###
+.localstack/
+*.localstack/
+/tmp/localstack/
+
+### Gerado automaticamente / sem valor no repositório ###
+HELP.md
+.gitignore.bak
+
+### Claude / Agentes de IA ###
+# AGENTS.md é configuração interna do agente, não faz parte do projeto
+AGENTS.md
+
+### Credenciais e estado local — NUNCA commitar ###
+.env
+.env.*
+!.env.example
+
+### Terraform — complementa terraform/.gitignore ###
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+### Scripts de inicialização AWS com dados sensíveis ###
+init-aws.sh
+
+### Arquivos de documentação gerados pelo Spring Initializr ###
+# Estes ficam em docs/ se forem relevantes; o HELP.md da raiz é lixo do Initializr
+/HELP.md

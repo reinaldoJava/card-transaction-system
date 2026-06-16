@@ -1,0 +1,20 @@
+frontend.enableClientVersionCheck:
+  - value: false
+
+history.enableConsistentQuery:
+  - value: true
+
+system.enableReadFromSecondaryVisibility:
+  - value: false
+
+frontend.enableUpdateWorkflowExecution:
+  - value: true
+
+frontend.enableNamespaceFailover:
+  - value: false
+
+frontend.enableWorkerVersioningDataAPIs:
+  - value: true
+
+frontend.enableWorkerVersioningWorkflowAPIs:
+  - value: true

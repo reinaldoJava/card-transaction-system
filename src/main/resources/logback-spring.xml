@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty name="LOG_LEVEL" source="logging.level.root" defaultValue="INFO"/>
+    <springProperty name="LOG_FILE" source="logging.file.name" defaultValue="logs/application.log"/>
+
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"card-transaction-system"}</customFields>
+            <includeContext>true</includeContext>
+            <includeMdcKeyName>true</includeMdcKeyName>
+            <mdcKeyFieldName>traceId=trace_id</mdcKeyFieldName>
+            <mdcKeyFieldName>spanId=span_id</mdcKeyFieldName>
+            <fieldNames>
+                <timestamp>@timestamp</timestamp>
+                <version>@version</version>
+                <message>message</message>
+                <logger>logger_name</logger>
+                <thread>thread_name</thread>
+                <level>level</level>
+                <levelValue>level_value</levelValue>
+                <stackTrace>stack_trace</stackTrace>
+                <tags>tags</tags>
+            </fieldNames>
+        </encoder>
+    </appender>
+
+    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <customFields>{"service":"card-transaction-system","environment":"${SPRING_PROFILES_ACTIVE:local}"}</customFields>
+            <includeContext>true</includeContext>
+            <includeMdcKeyName>true</includeMdcKeyName>
+            <mdcKeyFieldName>traceId=trace_id</mdcKeyFieldName>
+            <mdcKeyFieldName>spanId=span_id</mdcKeyFieldName>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/application-%d{yyyy-MM-dd}-%i.log.gz</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <logger name="com.empresa.cardtransactionsystem" level="DEBUG"/>
+    <logger name="org.springframework.web" level="INFO"/>
+    <logger name="org.springframework.security" level="INFO"/>
+    <logger name="io.opentelemetry" level="WARN"/>
+
+    <!-- Exporta logs via OTLP para o backend OTel (no local-rich, grafana/otel-lgtm -> Loki).
+         O Spring Boot instala o SDK do OpenTelemetry neste appender no startup. -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureMdcAttributes>*</captureMdcAttributes>
+    </appender>
+
+    <root level="${LOG_LEVEL}">
+        <appender-ref ref="CONSOLE_JSON"/>
+        <appender-ref ref="FILE_JSON"/>
+        <!-- OTLP de logs apenas no local-rich (Loki); em prod os logs vão para o CloudWatch -->
+        <springProfile name="local-rich">
+            <appender-ref ref="OTEL"/>
+        </springProfile>
+    </root>
+</configuration>

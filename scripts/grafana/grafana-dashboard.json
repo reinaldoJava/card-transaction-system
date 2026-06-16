@@ -1,0 +1,402 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Datasource Prometheus do otel-lgtm",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_LOKI",
+      "label": "Loki",
+      "description": "Datasource Loki do otel-lgtm",
+      "type": "datasource",
+      "pluginId": "loki",
+      "pluginName": "Loki"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "logs", "name": "Logs", "version": "" }
+  ],
+  "title": "Card Transaction System",
+  "uid": "card-txn-system-v1",
+  "description": "Metricas de observabilidade do Card Transaction System — HTTP, Circuit Breakers, JVM, Kafka e Logs.",
+  "tags": ["card-transaction-system", "spring-boot", "resilience4j"],
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "timezone": "browser",
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "graphTooltip": 1,
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource",
+        "label": "Prometheus"
+      },
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "name": "loki_ds",
+        "options": [],
+        "query": "loki",
+        "refresh": 1,
+        "type": "datasource",
+        "label": "Loki"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "type": "row", "title": "Visao Geral",
+      "collapsed": false, "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }
+    },
+    {
+      "id": 2, "type": "stat", "title": "Req/min (total)",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqpm",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "yellow", "value": 100 }, { "color": "red", "value": 500 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\"}[1m])) * 60", "legendFormat": "req/min", "refId": "A" }]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Taxa de Erro 5xx",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "yellow", "value": 0.01 }, { "color": "red", "value": 0.05 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",status=~\"5..\"}[5m])) / sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\"}[5m]))", "legendFormat": "error rate", "refId": "A" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "P95 Latencia /process",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 2 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"card-transaction-system\",uri=\"/process\"}[5m])) by (le))", "legendFormat": "p95", "refId": "A" }]
+    },
+    {
+      "id": 5, "type": "stat", "title": "ollamaFraud CB",
+      "description": "OPEN = Ollama indisponivel, fallback ativo.",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "OPEN", "color": "red", "index": 0 } } },
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green", "index": 1 } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "max(resilience4j_circuitbreaker_state{name=\"ollamaFraud\",state=\"open\"})", "legendFormat": "Ollama CB", "refId": "A" }]
+    },
+    {
+      "id": 6, "type": "stat", "title": "bedrockFraud CB",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "1": { "text": "OPEN", "color": "red", "index": 0 } } },
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green", "index": 1 } } }
+          ],
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [{ "expr": "max(resilience4j_circuitbreaker_state{name=\"bedrockFraud\",state=\"open\"})", "legendFormat": "Bedrock CB", "refId": "A" }]
+    },
+    {
+      "id": 7, "type": "stat", "title": "Uptime",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "fixed", "fixedColor": "blue" } } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [{ "expr": "process_uptime_seconds{job=\"card-transaction-system\"}", "legendFormat": "uptime", "refId": "A" }]
+    },
+    {
+      "id": 10, "type": "row", "title": "HTTP — Transacoes",
+      "collapsed": false, "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 }
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Throughput por Endpoint (req/min)",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=\"/process\"}[1m])) * 60", "legendFormat": "POST /process", "refId": "A" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=~\"/status/.*\"}[1m])) * 60", "legendFormat": "GET /status", "refId": "B" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=\"/auth/login\"}[1m])) * 60", "legendFormat": "POST /auth/login", "refId": "C" }
+      ]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Latencia /process (P50 / P95 / P99)",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{job=\"card-transaction-system\",uri=\"/process\"}[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"card-transaction-system\",uri=\"/process\"}[5m])) by (le))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"card-transaction-system\",uri=\"/process\"}[5m])) by (le))", "legendFormat": "p99", "refId": "C" }
+      ]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "HTTP Status por Codigo (req/min)",
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",status=~\"2..\"}[1m])) * 60", "legendFormat": "2xx", "refId": "A" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",status=~\"4..\"}[1m])) * 60", "legendFormat": "4xx", "refId": "B" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",status=~\"5..\"}[1m])) * 60", "legendFormat": "5xx", "refId": "C" }
+      ]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Taxa de Erro por Endpoint (%)",
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "lineWidth": 2 }, "min": 0, "max": 1 } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=\"/process\",status=~\"5..\"}[5m])) / sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=\"/process\"}[5m]))", "legendFormat": "POST /process", "refId": "A" },
+        { "expr": "sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=~\"/status/.*\",status=~\"5..\"}[5m])) / sum(rate(http_server_requests_seconds_count{job=\"card-transaction-system\",uri=~\"/status/.*\"}[5m]))", "legendFormat": "GET /status", "refId": "B" }
+      ]
+    },
+    {
+      "id": 20, "type": "row", "title": "Circuit Breakers — Fraude",
+      "collapsed": false, "gridPos": { "x": 0, "y": 21, "w": 24, "h": 1 }
+    },
+    {
+      "id": 21, "type": "timeseries", "title": "Estado dos Circuit Breakers (1 = estado ativo)",
+      "description": "A serie com valor 1 e o estado atual. open=1: CB aberto, fallback ativo.",
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "custom": { "lineWidth": 2 }, "min": 0, "max": 1 },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*open.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*half_open.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*closed.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "resilience4j_circuitbreaker_state{name=~\"ollamaFraud|bedrockFraud\"}", "legendFormat": "{{name}} — {{state}}", "refId": "A" }]
+    },
+    {
+      "id": 22, "type": "timeseries", "title": "CB — Taxa de Falha (%)",
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "custom": { "lineWidth": 2 }, "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 30 }, { "color": "red", "value": 50 }]}
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "resilience4j_circuitbreaker_failure_rate{name=\"ollamaFraud\"}", "legendFormat": "ollamaFraud", "refId": "A" },
+        { "expr": "resilience4j_circuitbreaker_failure_rate{name=\"bedrockFraud\"}", "legendFormat": "bedrockFraud", "refId": "B" }
+      ]
+    },
+    {
+      "id": 23, "type": "timeseries", "title": "CB — Chamadas por Tipo (req/min)",
+      "description": "not_permitted = chamadas bloqueadas pelo CB aberto (fallback ativado).",
+      "gridPos": { "x": 0, "y": 29, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "reqpm", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*not_permitted.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*successful.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byRegexp", "options": ".*failed.*" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "sum(rate(resilience4j_circuitbreaker_calls_total{name=~\"ollamaFraud|bedrockFraud\"}[1m])) by (name, kind) * 60", "legendFormat": "{{name}} — {{kind}}", "refId": "A" }]
+    },
+    {
+      "id": 24, "type": "timeseries", "title": "CB — Chamadas em Buffer (janela deslizante)",
+      "gridPos": { "x": 12, "y": 29, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "resilience4j_circuitbreaker_buffered_calls{name=~\"ollamaFraud|bedrockFraud\"}", "legendFormat": "{{name}} — {{kind}}", "refId": "A" }]
+    },
+    {
+      "id": 30, "type": "row", "title": "JVM — Memoria, CPU e Threads",
+      "collapsed": false, "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 }
+    },
+    {
+      "id": 31, "type": "timeseries", "title": "Heap Memory (Used vs Max)",
+      "gridPos": { "x": 0, "y": 37, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "used" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "max" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }, { "id": "custom.lineStyle", "value": { "dash": [10,10], "fill": "dash" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "sum(jvm_memory_used_bytes{job=\"card-transaction-system\",area=\"heap\"})", "legendFormat": "used", "refId": "A" },
+        { "expr": "sum(jvm_memory_max_bytes{job=\"card-transaction-system\",area=\"heap\"})", "legendFormat": "max", "refId": "B" }
+      ]
+    },
+    {
+      "id": 32, "type": "gauge", "title": "Heap Usage %",
+      "gridPos": { "x": 12, "y": 37, "w": 4, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.7 }, { "color": "red", "value": 0.85 }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [{ "expr": "sum(jvm_memory_used_bytes{job=\"card-transaction-system\",area=\"heap\"}) / sum(jvm_memory_max_bytes{job=\"card-transaction-system\",area=\"heap\"})", "legendFormat": "heap %", "refId": "A" }]
+    },
+    {
+      "id": 33, "type": "timeseries", "title": "CPU Usage",
+      "gridPos": { "x": 16, "y": 37, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 2 },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.6 }, { "color": "red", "value": 0.8 }]}
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "process_cpu_usage{job=\"card-transaction-system\"}", "legendFormat": "process CPU", "refId": "A" },
+        { "expr": "system_cpu_usage{job=\"card-transaction-system\"}", "legendFormat": "system CPU", "refId": "B" }
+      ]
+    },
+    {
+      "id": 34, "type": "timeseries", "title": "Threads JVM",
+      "gridPos": { "x": 0, "y": 44, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [
+        { "expr": "jvm_threads_live{job=\"card-transaction-system\"}", "legendFormat": "live", "refId": "A" },
+        { "expr": "jvm_threads_daemon{job=\"card-transaction-system\"}", "legendFormat": "daemon", "refId": "B" },
+        { "expr": "jvm_threads_peak{job=\"card-transaction-system\"}", "legendFormat": "peak", "refId": "C" }
+      ]
+    },
+    {
+      "id": 35, "type": "timeseries", "title": "GC Pause Duration (p99)",
+      "gridPos": { "x": 12, "y": 44, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "histogram_quantile(0.99, sum(rate(jvm_gc_pause_seconds_bucket{job=\"card-transaction-system\"}[5m])) by (le, action, cause))", "legendFormat": "{{action}} — {{cause}}", "refId": "A" }]
+    },
+    {
+      "id": 40, "type": "row", "title": "Kafka",
+      "collapsed": false, "gridPos": { "x": 0, "y": 51, "w": 24, "h": 1 }
+    },
+    {
+      "id": 41, "type": "timeseries", "title": "Producer — Records Enviados/s",
+      "gridPos": { "x": 0, "y": 52, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2 } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "sum(rate(spring_kafka_template_milliseconds_count{job=\"card-transaction-system\"}[1m]))", "legendFormat": "mensagens/s", "refId": "A" }]
+    },
+    {
+      "id": 42, "type": "timeseries", "title": "Producer — Erros/s",
+      "gridPos": { "x": 12, "y": 52, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "lineWidth": 2 }, "color": { "fixedColor": "red", "mode": "fixed" } } },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum(rate(spring_kafka_template_milliseconds_bucket{job=\"card-transaction-system\"}[1m])) by (le))", "legendFormat": "p95 latência (ms)", "refId": "A" }]
+    },
+    {
+      "id": 50, "type": "row", "title": "Logs — Erros e Circuit Breakers",
+      "collapsed": false, "gridPos": { "x": 0, "y": 59, "w": 24, "h": 1 }
+    },
+    {
+      "id": 51, "type": "logs", "title": "Erros da Aplicacao (ERROR)",
+      "gridPos": { "x": 0, "y": 60, "w": 24, "h": 8 },
+      "datasource": { "type": "loki", "uid": "${loki_ds}" },
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "targets": [{ "expr": "{service_name=\"card-transaction-system\"} | json | level = \"ERROR\"", "legendFormat": "", "refId": "A" }]
+    },
+    {
+      "id": 52, "type": "logs", "title": "Transicoes de Circuit Breaker (OPEN / HALF_OPEN / CLOSED)",
+      "gridPos": { "x": 0, "y": 68, "w": 24, "h": 7 },
+      "datasource": { "type": "loki", "uid": "${loki_ds}" },
+      "options": { "dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true },
+      "targets": [{ "expr": "{service_name=\"card-transaction-system\"} |= \"Circuit breaker\"", "legendFormat": "", "refId": "A" }]
+    }
+  ]
+}

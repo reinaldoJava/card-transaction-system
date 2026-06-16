@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo da Transação de Cartão — Ponta a Ponta</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #8b949e;
+    --blue: #58a6ff; --gray: #6e7681; --purple: #bc8cff; --green: #3fb950;
+    --orange: #f0883e; --line: #30363d;
+  }
+  html,body { margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI",system-ui,Arial,sans-serif; }
+  .wrap { max-width:1280px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:20px; font-weight:600; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 20px; }
+  .legend { display:flex; flex-wrap:wrap; gap:16px; margin:18px 0 0; font-size:12px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .dot { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  svg { width:100%; height:auto; display:block; margin-top:8px; }
+  .note { font-size:12px; color:var(--muted); margin-top:18px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fluxo da Transação de Cartão — Ponta a Ponta</h1>
+  <p class="sub">Do <b>website / app</b> (cartão não presente) até a autorização. O bloco verde é o <b>nosso sistema</b> (passos 2 a 6).</p>
+
+  <svg viewBox="0 0 1240 760" xmlns="http://www.w3.org/2000/svg" role="img"
+       aria-label="Fluxo ponta a ponta da transacao de cartao">
+    <defs>
+      <marker id="arrF" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+      </marker>
+      <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#3fb950"/>
+      </marker>
+    </defs>
+
+    <!-- ============ NOSSO SISTEMA boundary ============ -->
+    <rect x="636" y="40" width="572" height="560" rx="14"
+          fill="rgba(63,185,80,0.05)" stroke="var(--green)" stroke-width="2" stroke-dasharray="7 6"/>
+    <text x="656" y="68" fill="var(--green)" font-size="14" font-weight="700">NOSSO SISTEMA · autorização · passos 2 a 6</text>
+
+    <!-- ============ Cliente ============ -->
+    <rect x="36" y="150" width="170" height="150" rx="12" fill="var(--panel)" stroke="var(--blue)" stroke-width="2"/>
+    <text x="121" y="184" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="700">Cliente</text>
+    <rect x="56" y="204" width="130" height="46" rx="8" fill="#0d1117" stroke="var(--line)"/>
+    <text x="121" y="226" text-anchor="middle" fill="var(--ink)" font-size="12" font-weight="600">Website / App</text>
+    <text x="121" y="243" text-anchor="middle" fill="var(--muted)" font-size="10">cartão não presente</text>
+    <text x="121" y="277" text-anchor="middle" fill="var(--muted)" font-size="9.5">maquininha (POS) → outra</text>
+    <text x="121" y="290" text-anchor="middle" fill="var(--muted)" font-size="9.5">arquitetura (fora do escopo)</text>
+
+    <!-- ============ Merchant ============ -->
+    <rect x="266" y="178" width="150" height="94" rx="12" fill="var(--panel)" stroke="var(--gray)" stroke-width="2"/>
+    <text x="341" y="218" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="700">E-commerce / PDV</text>
+    <text x="341" y="238" text-anchor="middle" fill="var(--muted)" font-size="12">(lojista / merchant)</text>
+
+    <!-- ============ Rail (adquirente + bandeira) ============ -->
+    <rect x="466" y="174" width="150" height="102" rx="12" fill="var(--panel)" stroke="var(--purple)" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="541" y="208" text-anchor="middle" fill="var(--purple)" font-size="13" font-weight="700">Adquirente</text>
+    <text x="541" y="228" text-anchor="middle" fill="var(--purple)" font-size="13" font-weight="700">→ Bandeira</text>
+    <text x="541" y="252" text-anchor="middle" fill="var(--muted)" font-size="10.5">trilho abstraído no passo 2</text>
+
+    <!-- ============ internos do nosso sistema ============ -->
+    <rect x="660" y="92" width="524" height="56" rx="10" fill="var(--panel)" stroke="var(--blue)" stroke-width="1.6"/>
+    <text x="922" y="116" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">API de Autorização — POST /process → 202 (assíncrono)</text>
+    <text x="922" y="135" text-anchor="middle" fill="var(--muted)" font-size="11">recebe o pedido vindo do trilho</text>
+
+    <rect x="660" y="172" width="524" height="50" rx="10" fill="var(--panel)" stroke="var(--line)" stroke-width="1.6"/>
+    <text x="922" y="202" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">Saga / Orquestração (Temporal · Step Functions)</text>
+
+    <rect x="660" y="250" width="250" height="86" rx="10" fill="var(--panel)" stroke="var(--green)" stroke-width="1.6"/>
+    <text x="785" y="284" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="700">3 · Regras de negócio</text>
+    <text x="785" y="306" text-anchor="middle" fill="var(--muted)" font-size="11">domínio (saldo, limites,</text>
+    <text x="785" y="322" text-anchor="middle" fill="var(--muted)" font-size="11">idempotência, velocity)</text>
+
+    <rect x="934" y="250" width="250" height="86" rx="10" fill="var(--panel)" stroke="var(--orange)" stroke-width="1.6"/>
+    <text x="1059" y="280" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="700">4 · Antifraude (IA)</text>
+    <text x="1059" y="301" text-anchor="middle" fill="var(--muted)" font-size="11">Bedrock / Ollama</text>
+    <text x="1059" y="318" text-anchor="middle" fill="var(--muted)" font-size="11">+ fallback de degrade</text>
+
+    <rect x="660" y="364" width="524" height="50" rx="10" fill="var(--panel)" stroke="var(--line)" stroke-width="1.6"/>
+    <text x="922" y="386" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="700">5 · Decisão: aprovar / negar</text>
+    <text x="922" y="404" text-anchor="middle" fill="var(--muted)" font-size="11">consolida regras + score de fraude</text>
+
+    <rect x="660" y="442" width="524" height="56" rx="10" fill="var(--panel)" stroke="var(--blue)" stroke-width="1.6"/>
+    <text x="922" y="466" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">6 · Retorno ao chamador</text>
+    <text x="922" y="485" text-anchor="middle" fill="var(--muted)" font-size="11">polling (GET /status) + webhook (HMAC)</text>
+
+    <!-- ===== arrows: internos ===== -->
+    <line x1="922" y1="148" x2="922" y2="170" stroke="var(--gray)" stroke-width="2" marker-end="url(#arrF)"/>
+    <line x1="922" y1="222" x2="922" y2="248" stroke="var(--gray)" stroke-width="2" marker-end="url(#arrF)"/>
+    <line x1="785" y1="336" x2="785" y2="362" stroke="var(--gray)" stroke-width="2" marker-end="url(#arrF)"/>
+    <line x1="1059" y1="336" x2="1059" y2="390" stroke="var(--gray)" stroke-width="2" marker-end="url(#arrF)"/>
+    <line x1="1059" y1="390" x2="1186" y2="390" stroke="var(--gray)" stroke-width="0"/>
+    <text x="1075" y="356" fill="var(--muted)" font-size="10.5">5 · retorno da análise</text>
+    <line x1="922" y1="414" x2="922" y2="440" stroke="var(--gray)" stroke-width="2" marker-end="url(#arrF)"/>
+
+    <!-- ===== forward arrows: 1, 2 ===== -->
+    <!-- 1: cliente -> merchant -->
+    <line x1="206" y1="225" x2="264" y2="225" stroke="var(--gray)" stroke-width="2.4" marker-end="url(#arrF)"/>
+    <text x="235" y="212" text-anchor="middle" fill="var(--ink)" font-size="11" font-weight="600">1</text>
+    <text x="235" y="252" text-anchor="middle" fill="var(--muted)" font-size="10">compra</text>
+    <!-- 2: merchant -> rail -> API -->
+    <line x1="416" y1="225" x2="464" y2="225" stroke="var(--gray)" stroke-width="2.4" marker-end="url(#arrF)"/>
+    <path d="M616,205 H636 V120 H658" fill="none" stroke="var(--gray)" stroke-width="2.4" marker-end="url(#arrF)"/>
+    <text x="628" y="160" text-anchor="middle" fill="var(--ink)" font-size="11" font-weight="600">2</text>
+    <text x="540" y="150" text-anchor="middle" fill="var(--muted)" font-size="10">envio p/ pagamento no cartão</text>
+
+    <!-- ===== return arrows: 6, 7 (verde) ===== -->
+    <!-- 6: sistema -> merchant (entra pela base do merchant) -->
+    <path d="M660,470 H560 V340 H380 V274" fill="none" stroke="var(--green)" stroke-width="2.4" marker-end="url(#arrR)"/>
+    <text x="468" y="360" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">6 · aprovação / reprovação</text>
+    <!-- 7: merchant -> cliente -->
+    <path d="M300,272 V340 H121 V302" fill="none" stroke="var(--green)" stroke-width="2.4" marker-end="url(#arrR)"/>
+    <text x="196" y="360" text-anchor="middle" fill="var(--green)" font-size="11" font-weight="600">7 · retorno ao cliente</text>
+
+    <!-- baseline guide labels -->
+    <text x="922" y="540" text-anchor="middle" fill="var(--muted)" font-size="11">↑ caminho de ida (cinza)  ·  caminho de volta (verde) ↓</text>
+  </svg>
+
+  <div class="legend">
+    <span><i class="dot" style="background:#58a6ff"></i> Cliente / canais</span>
+    <span><i class="dot" style="background:#6e7681"></i> Merchant (lojista)</span>
+    <span><i class="dot" style="background:#bc8cff"></i> Trilho (adquirente/bandeira)</span>
+    <span><i class="dot" style="background:#3fb950"></i> Nosso sistema / retorno</span>
+    <span><i class="dot" style="background:#f0883e"></i> Antifraude (IA)</span>
+  </div>
+
+  <p class="note">
+    <b>Onde o sistema se encaixa:</b> ele é o <b>autorizador</b> da transação — recebe o pedido depois do
+    trilho adquirente→bandeira, aplica as regras de negócio e a análise antifraude, decide aprovar/negar
+    e devolve o resultado. Os passos <b>2 a 6</b> são responsabilidade do nosso sistema; <b>1</b> e <b>7</b>
+    pertencem ao cliente e ao lojista.<br>
+    <b>Escopo (cartão não presente):</b> este fluxo cobre o canal <b>web/app</b>, em que o lojista chama
+    APIs do trilho. A <b>maquininha (POS / cartão presente)</b> usa outra arquitetura — EMV + ISO 8583
+    direto na rede do adquirente — e não passa pela nossa API REST; por isso fica fora deste diagrama.<br>
+    <b>Simplificação:</b> o trilho adquirente/bandeira está condensado no passo 2 (em produção há mais
+    saltos), para focar na localização do sistema.
+  </p>
+</div>
+</body>
+</html>

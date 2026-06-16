@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/cards
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:19092
+    consumer:
+      group-id: card-transaction-system
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+aws:
+  dynamodb:
+    endpoint: http://localhost:4566
+    region: us-east-1
+
+step-functions:
+  state-machine-arn: arn:aws:states:us-east-1:000000000000:stateMa
+
+temporal:
+  host: 127.0.0.1
+  port: 7233
+
+logging.level.root: INFO
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces      # Grafana otel-lgtm → Tempo
+    metrics:
+      export:
+        url: http://localhost:4318/v1/metrics        # Grafana otel-lgtm → Prometheus
+        step: 10s
+    logging:
+      endpoint: http://localhost:4318/v1/logs        # Grafana otel-lgtm → Loki

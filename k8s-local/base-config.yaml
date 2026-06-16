@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: card-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: card-system
+data:
+  SPRING_PROFILES_ACTIVE: "local-rich,env-local"
+  REDIS_HOST: "redis-service"
+  DB_URL: "jdbc:postgresql://postgres-service:5432/cards"
+  KAFKA_BROKERS: "redpanda-service:9092"
+  TEMPORAL_TARGET: "temporal-service:7233"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-lgtm-service:4317"
+  # Endpoints específicos do Micrometer/Spring (sobrescrevem o localhost do application-local-rich.yml)
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: "http://otel-lgtm-service:4318/v1/traces"
+  MANAGEMENT_OTLP_METRICS_EXPORT_URL: "http://otel-lgtm-service:4318/v1/metrics"
+  MANAGEMENT_OTLP_LOGGING_ENDPOINT: "http://otel-lgtm-service:4318/v1/logs"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+  namespace: card-system
+type: Opaque
+stringData:
+  # PLACEHOLDERS — segredos reais NUNCA entram no repositorio (base64 nao e criptografia).
+  # Preencha localmente antes do apply, ou crie o Secret fora do git:
+  #   kubectl -n card-system create secret generic app-secrets \
+  #     --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
+  DB_PASSWORD: "CHANGE_ME"
+  JWT_SECRET: "CHANGE_ME_32_CHARS_MINIMUM_NEEDED"

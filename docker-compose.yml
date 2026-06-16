@@ -1,0 +1,170 @@
+services:
+  localstack:
+    image: localstack/localstack:3.0.0
+    container_name: localstack
+    ports:
+      - "127.0.0.1:4566:4566"
+    environment:
+      - DEBUG=1
+      - SERVICES=dynamodb,stepfunctions,ssm,events
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "./scripts/prompts:/prompts:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=cards
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - "./scripts/seed-local.sql:/docker-entrypoint-initdb.d/seed-local.sql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-seed:
+    image: redis:7-alpine
+    container_name: redis-seed
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      redis-cli -h redis
+      SET "FRAUD:acd08f29-a41f-2e55-ab0c-4f774b1562b0" "{\"score\":95}" EX 86400
+
+  temporal:
+    image: temporalio/auto-setup:1.25.2
+    container_name: temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=postgres
+      - POSTGRES_SEEDS=postgres
+      - DEFAULT_NAMESPACE=default
+      - DEFAULT_NAMESPACE_RETENTION=1d
+      - LOG_LEVEL=warn
+    ports:
+      - "127.0.0.1:7233:7233"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/7233' 2>/dev/null"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 30
+
+  temporal-ui:
+    image: temporalio/ui:2.26.2
+    container_name: temporal-ui
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "127.0.0.1:9080:9080"
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.11
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "tctl --address localhost:7233 cluster health 2>&1 | grep -q SERVING"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  ollama-setup:
+    image: ollama/ollama:latest
+    container_name: ollama-setup
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_KEEP_ALIVE=-1
+    entrypoint: ["/bin/sh","-c"]
+    command:
+      - "ollama pull mistral && ollama run mistral 'warmup' >/dev/null && echo 'mistral pronto e carregado'"
+    restart: "no"
+
+  # Grafana OpenTelemetry LGTM — backend OTel "tudo-em-um" para dev local
+  # (OTel Collector + Tempo=traces + Prometheus=metricas + Loki=logs + Grafana).
+  # Recebe OTLP em 4317/4318 e expoe o Grafana em http://localhost:3000
+  # (datasources Tempo/Prometheus/Loki ja vem provisionados).
+  otel-lgtm:
+    image: grafana/otel-lgtm:0.8.1
+    container_name: otel-lgtm
+    ports:
+      - "127.0.0.1:3000:3000"   # Grafana UI
+      - "127.0.0.1:4317:4317"   # OTLP gRPC
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
+    volumes:
+      - loki_data:/data/loki # necessário no Windows/WSL2 — Loki 3.x falha sem volume persistido
+      - ./scripts/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/dashboards.yaml
+      - ./scripts/grafana/grafana-dashboard.json:/otel-lgtm/grafana-dashboard-card-transaction-system.json
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 90s
+      retries: 10
+
+volumes:
+  ollama_data:
+  loki_data:

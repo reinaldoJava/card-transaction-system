@@ -1,0 +1,85 @@
+package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
+
+import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.CardTransactionDdbEntity;
+import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
+import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import com.empresa.cardtransactionsystem.domain.ports.output.TransactionRepositoryPort;
+import io.micrometer.observation.annotation.Observed;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Repository;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
+import software.amazon.awssdk.enhanced.dynamodb.DynamoDbTable;
+import software.amazon.awssdk.enhanced.dynamodb.TableSchema;
+import software.amazon.awssdk.enhanced.dynamodb.model.UpdateItemEnhancedRequest;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+@Profile("ledger-dynamodb")
+public class DynamoDbTransactionAdapter implements TransactionRepositoryPort {
+
+    private final DynamoDbTable<CardTransactionDdbEntity> transactionTable;
+
+    public DynamoDbTransactionAdapter(DynamoDbEnhancedClient enhancedClient) {
+        this.transactionTable = enhancedClient.table("card-transactions",
+                TableSchema.fromBean(CardTransactionDdbEntity.class));
+    }
+
+    @Override
+    @Observed(name = "db.transaction.save", contextualName = "dynamodb.put-transaction")
+    public void save(SagaPayload payload) {
+        transactionTable.putItem(CardTransactionDdbEntity.from(payload));
+    }
+
+    @Override
+    @Observed(name = "db.transaction.update_status", contextualName = "dynamodb.update-transaction-status")
+    public void updateStatus(UUID correlationId, TransactionStatus status) {
+        CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
+        entity.setUuidTransaction(correlationId.toString());
+        entity.setStatus(status.name());
+        transactionTable.updateItem(
+                UpdateItemEnhancedRequest.builder(CardTransactionDdbEntity.class)
+                        .item(entity)
+                        .build()
+        );
+    }
+
+    @Override
+    @Observed(name = "db.transaction.update_status_reason", contextualName = "dynamodb.update-transaction-status-reason")
+    public void updateStatusAndReason(UUID correlationId, TransactionStatus status, String reason) {
+        CardTransactionDdbEntity entity = new CardTransactionDdbEntity();
+        entity.setUuidTransaction(correlationId.toString());
+        entity.setStatus(status.name());
+        entity.setReason(reason);
+        transactionTable.updateItem(
+                UpdateItemEnhancedRequest.builder(CardTransactionDdbEntity.class)
+                        .item(entity)
+                        .build()
+        );
+    }
+
+    @Override
+    @Observed(name = "db.transaction.find_status", contextualName = "dynamodb.get-transaction-status")
+    public Optional<TransactionStatus> findStatus(UUID correlationId) {
+        return findEntity(correlationId)
+                .map(e -> TransactionStatus.valueOf(e.getStatus()));
+    }
+
+    @Override
+    public Optional<String> findReason(UUID correlationId) {
+        return findEntity(correlationId).map(CardTransactionDdbEntity::getReason);
+    }
+
+    @Override
+    @Observed(name = "db.transaction.find_by_id", contextualName = "dynamodb.get-transaction")
+    public Optional<SagaPayload> findById(UUID correlationId) {
+        return findEntity(correlationId).map(CardTransactionDdbEntity::toDomain);
+    }
+
+    private Optional<CardTransactionDdbEntity> findEntity(UUID correlationId) {
+        return Optional.ofNullable(
+                transactionTable.getItem(r -> r.key(k -> k.partitionValue(correlationId.toString())))
+        );
+    }
+}
