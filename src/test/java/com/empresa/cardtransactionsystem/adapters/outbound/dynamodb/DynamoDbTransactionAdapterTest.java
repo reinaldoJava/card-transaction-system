@@ -3,6 +3,7 @@ package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 import com.empresa.cardtransactionsystem.domain.model.CardToken;
 import com.empresa.cardtransactionsystem.domain.model.SagaPayload;
 import com.empresa.cardtransactionsystem.domain.model.TransactionStatus;
+import org.junit.jupiter.api.Tag;
 import com.empresa.cardtransactionsystem.fixture.SagaPayloadFixture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 class DynamoDbTransactionAdapterTest {
 
     private DynamoDbTransactionAdapter adapter;

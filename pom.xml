@@ -317,6 +317,7 @@
 				<version>3.5.5</version>
 				<configuration>
 					<argLine>--enable-preview</argLine>
+					<excludedGroups>${excluded.test.groups}</excludedGroups>
 				</configuration>
 			</plugin>
 			<plugin>

@@ -3,6 +3,7 @@ package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.entity.UserDdbEntity;
 import com.empresa.cardtransactionsystem.domain.model.auth.User;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 class DynamoDbUserRepositoryAdapterTest {
 
     private DynamoDbUserRepositoryAdapter adapter;
