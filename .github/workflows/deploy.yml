@@ -39,7 +39,9 @@ jobs:
           cache: maven
 
       - name: Build Lambda jar
-        run: ./mvnw -B -ntp clean package -DskipTests
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp clean package -DskipTests
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
