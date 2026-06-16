@@ -1,5 +1,6 @@
 package com.empresa.cardtransactionsystem.config;
 
+import org.junit.jupiter.api.Tag;
 import com.empresa.cardtransactionsystem.adapters.outbound.bedrock.BedrockFraudAnalysisAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbCacheAdapter;
 import com.empresa.cardtransactionsystem.adapters.outbound.dynamodb.DynamoDbClientProfileAdapter;
@@ -42,6 +43,7 @@ import software.amazon.awssdk.services.ssm.model.Parameter;
 import org.springframework.test.annotation.DirtiesContext;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("integration")
 @DirtiesContext
 @SpringBootTest(properties = {
         "spring.autoconfigure.exclude=" +

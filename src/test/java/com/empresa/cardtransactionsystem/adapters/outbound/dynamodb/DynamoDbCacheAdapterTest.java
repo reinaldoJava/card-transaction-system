@@ -2,6 +2,7 @@ package com.empresa.cardtransactionsystem.adapters.outbound.dynamodb;
 
 import com.empresa.cardtransactionsystem.domain.model.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("integration")
 class DynamoDbCacheAdapterTest {
 
     private DynamoDbCacheAdapter adapter;
