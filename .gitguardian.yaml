@@ -1,0 +1,4 @@
+version: 2
+paths-ignore:
+  # Hashes bcrypt de usuarios de teste local — nao sao credenciais reutilizaveis
+  - scripts/seed-local.sql

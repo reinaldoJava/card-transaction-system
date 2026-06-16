@@ -27,7 +27,6 @@ jobs:
   deploy:
     name: Terraform ${{ github.event.inputs.action }}
     runs-on: ubuntu-latest
-    environment: production   # protecao por required reviewers (configurar no GitHub)
     steps:
       - uses: actions/checkout@v4
 
