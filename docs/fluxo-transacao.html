@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fluxo da Transação de Cartão — Ponta a Ponta</title>
+<title>Fluxo da Transação de Cartão, Ponta a Ponta</title>
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --ink: #e6edf3; --muted: #8b949e;
@@ -24,7 +24,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Fluxo da Transação de Cartão — Ponta a Ponta</h1>
+  <h1>Fluxo da Transação de Cartão, Ponta a Ponta</h1>
   <p class="sub">Do <b>website / app</b> (cartão não presente) até a autorização. O bloco verde é o <b>nosso sistema</b> (passos 2 a 6).</p>
 
   <svg viewBox="0 0 1240 760" xmlns="http://www.w3.org/2000/svg" role="img"
@@ -65,7 +65,7 @@
 
     <!-- ============ internos do nosso sistema ============ -->
     <rect x="660" y="92" width="524" height="56" rx="10" fill="var(--panel)" stroke="var(--blue)" stroke-width="1.6"/>
-    <text x="922" y="116" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">API de Autorização — POST /process → 202 (assíncrono)</text>
+    <text x="922" y="116" text-anchor="middle" fill="var(--ink)" font-size="13" font-weight="600">API de Autorização, POST /process → 202 (assíncrono)</text>
     <text x="922" y="135" text-anchor="middle" fill="var(--muted)" font-size="11">recebe o pedido vindo do trilho</text>
 
     <rect x="660" y="172" width="524" height="50" rx="10" fill="var(--panel)" stroke="var(--line)" stroke-width="1.6"/>
@@ -130,13 +130,13 @@
   </div>
 
   <p class="note">
-    <b>Onde o sistema se encaixa:</b> ele é o <b>autorizador</b> da transação — recebe o pedido depois do
+    <b>Onde o sistema se encaixa:</b> ele é o <b>autorizador</b> da transação, recebe o pedido depois do
     trilho adquirente→bandeira, aplica as regras de negócio e a análise antifraude, decide aprovar/negar
     e devolve o resultado. Os passos <b>2 a 6</b> são responsabilidade do nosso sistema; <b>1</b> e <b>7</b>
     pertencem ao cliente e ao lojista.<br>
     <b>Escopo (cartão não presente):</b> este fluxo cobre o canal <b>web/app</b>, em que o lojista chama
-    APIs do trilho. A <b>maquininha (POS / cartão presente)</b> usa outra arquitetura — EMV + ISO 8583
-    direto na rede do adquirente — e não passa pela nossa API REST; por isso fica fora deste diagrama.<br>
+    APIs do trilho. A <b>maquininha (POS / cartão presente)</b> usa outra arquitetura, EMV + ISO 8583
+    direto na rede do adquirente, e não passa pela nossa API REST; por isso fica fora deste diagrama.<br>
     <b>Simplificação:</b> o trilho adquirente/bandeira está condensado no passo 2 (em produção há mais
     saltos), para focar na localização do sistema.
   </p>

@@ -1,4 +1,4 @@
-# CI/CD — GitHub Actions
+# CI/CD: GitHub Actions
 
 Dois workflows, sem chaves de acesso estáticas (autenticação **OIDC**):
 
@@ -11,7 +11,7 @@ O deploy é **manual e gated**: nunca dispara em push. `plan` é o default; `app
 
 ---
 
-## 1. Bootstrap (uma única vez) — OIDC Provider + IAM Role
+## 1. Bootstrap (uma única vez): OIDC Provider + IAM Role
 
 A role é assumida pelo GitHub via OIDC; sem `AWS_ACCESS_KEY_ID`/`SECRET` em lugar nenhum.
 
@@ -23,7 +23,7 @@ aws iam create-open-id-connect-provider \
   --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
 ```
 
-Trust policy da role (`trust.json`) — **restrinja ao seu repositório** (evita que outro repo assuma a role):
+Trust policy da role (`trust.json`), **restrinja ao seu repositório** (evita que outro repo assuma a role):
 
 ```json
 {
@@ -57,7 +57,7 @@ Anexe à role uma policy com o necessário para o deploy: `lambda:*`, `dynamodb:
 | Secret | Conteúdo |
 |---|---|
 | `AWS_DEPLOY_ROLE_ARN` | ARN da role acima (`arn:aws:iam::<ACCOUNT_ID>:role/card-transaction-system-gha-deploy`) |
-| `TF_VAR_JWT_SECRET` | segredo JWT (≥ 32 chars) — vai para o SSM via Terraform |
+| `TF_VAR_JWT_SECRET` | segredo JWT (≥ 32 chars), vai para o SSM via Terraform |
 | `TF_VAR_NR_LICENSE_KEY` | New Relic license key (ou vazio) |
 | `TF_VAR_NR_ACCOUNT_ID` | New Relic account id |
 | `TF_VAR_NR_API_KEY` | New Relic API key |
