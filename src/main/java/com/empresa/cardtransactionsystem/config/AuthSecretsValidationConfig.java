@@ -9,17 +9,15 @@ import org.springframework.context.annotation.Profile;
 @Profile("env-aws")
 public class AuthSecretsValidationConfig {
 
-    private static final String INSECURE_DEFAULT_OPAQUE_TOKEN = "550e8400-e29b-41d4-a716-446655440000";
+    private final String opaqueTokenFromEnv;
 
-    private final String opaqueToken;
-
-    public AuthSecretsValidationConfig(@Value("${auth.hardcoded-opaque-token}") String opaqueToken) {
-        this.opaqueToken = opaqueToken;
+    public AuthSecretsValidationConfig(@Value("${AUTH_OPAQUE_TOKEN:}") String opaqueTokenFromEnv) {
+        this.opaqueTokenFromEnv = opaqueTokenFromEnv;
     }
 
     @PostConstruct
     void validate() {
-        if (opaqueToken == null || opaqueToken.isBlank() || INSECURE_DEFAULT_OPAQUE_TOKEN.equals(opaqueToken)) {
+        if (opaqueTokenFromEnv == null || opaqueTokenFromEnv.isBlank()) {
             throw new IllegalStateException(
                     "AUTH_OPAQUE_TOKEN nao configurado: defina um valor seguro via variavel de ambiente antes do deploy em AWS.");
         }
