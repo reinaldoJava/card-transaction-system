@@ -18,7 +18,7 @@ aws:
 auth:
   lambda:
     function-name: ${AUTH_LAMBDA_FUNCTION_NAME:token-exchange-lambda}
-  hardcoded-opaque-token: ${AUTH_OPAQUE_TOKEN:550e8400-e29b-41d4-a716-446655440000}
+  hardcoded-opaque-token: ${AUTH_OPAQUE_TOKEN:local-dev-opaque-token}
 
 jwt:
   secret: ${JWT_SECRET:default-secret-key-change-in-prod!!}
