@@ -1,6 +1,6 @@
 # Card Transaction System
 
-Processamento de transações de cartão de crédito em arquitetura **serverless de custo zero** (exceto Bedrock): autorização **assíncrona** com saga distribuída (AWS Step Functions), análise de fraude por agente Bedrock (ReAct), observability **OpenTelemetry → New Relic** e logging estruturado em JSON. Construído com **Arquitetura Hexagonal + DDD**, Java 25 e Spring Boot 4, rodando em AWS Lambda (Function URL) + DynamoDB.
+Processamento de transações de cartão de crédito em arquitetura **serverless de custo zero** (exceto Bedrock): autorização **assíncrona** com saga distribuída (AWS Step Functions), análise de fraude por agente Bedrock (ReAct), observability **OpenTelemetry → New Relic** e logging estruturado em JSON. Construído com **Arquitetura Hexagonal + DDD**, Java 25 e Spring Boot 4.1, rodando em AWS Lambda (Function URL) + DynamoDB.
 
 > Documentos complementares: [`docs/diagrama.html`](./docs/diagrama.html) (C4 container), [`docs/fluxo-transacao.html`](./docs/fluxo-transacao.html) (fluxo ponta a ponta da transação), [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/DEEP_DIVE.md`](./docs/DEEP_DIVE.md) (decisões de arquitetura/custo), [`docs/LOCAL_DEV.md`](./docs/LOCAL_DEV.md) (stack local-rich), [`docs/OBSERVABILITY.md`](./docs/OBSERVABILITY.md) (plano de observability), [`docs/CICD.md`](./docs/CICD.md) (GitHub Actions + OIDC), [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md), [`docs/LOCALSTACK.md`](./docs/LOCALSTACK.md).
 
@@ -16,7 +16,7 @@ A autorização é **assíncrona** para não pagar Lambda ociosa:
 
 Premissas de custo (conta com free tier de 12 meses expirado, mas *always-free* intacto): só serviços sempre-gratuitos (Lambda, DynamoDB, Step Functions Standard, SSM, 100GB/mês de egress). **Único item pago: Bedrock**, e no perfil local ele é substituído por Ollama/Mistral via feature flag.
 
-> ℹ️ **Retorno ao cliente:** o resultado pode ser consultado por **polling** em `GET /status/{correlationId}` (publicado na AWS via `getStatusFunction` + Lambda URL) **ou** recebido por **webhook**, se a transação enviar `callbackUrl`, o `UpdateStatus` faz um `POST` assinado (HMAC) com o resultado.
+> ℹ️ **Retorno ao cliente:** o resultado pode ser consultado por **polling** em `GET /status/{correlationId}` (publicado na AWS via `getStatusFunction` + Lambda URL) **ou** recebido por **webhook**: se a transação enviar `callbackUrl`, o `UpdateStatus` faz um `POST` assinado (HMAC) com o resultado.
 
 ---
 
@@ -120,7 +120,7 @@ Cada function é embrulhada por um wrapper que faz **force flush** de traces e m
 
 ### Como funciona
 
-Cada transação pode indicar de onde ela está sendo feita via o campo `locationCode` (string). O sistema mantém uma **tabela-verdade** de 52 locais fictícios em `src/main/resources/geo/test-locations.json`, carregada em memória na inicialização via `GeoLocationRegistry`, **zero custo de infra, zero chamada de API**.
+Cada transação pode indicar de onde ela está sendo feita via o campo `locationCode` (string). O sistema mantém uma **tabela-verdade** de 52 locais fictícios em `src/main/resources/geo/test-locations.json`, carregada em memória na inicialização via `GeoLocationRegistry`: zero custo de infra, zero chamada de API.
 
 **Fluxo:**
 1. Se `locationCode` for enviado e existir na tabela → usa esse local.
@@ -191,7 +191,7 @@ src/main/java/com/empresa/cardtransactionsystem/
 │       ├── lambda/                 # JwtGenerator, token exchange
 │       └── observability/          # TraceparentExtractor, TransactionMetrics, FlushableOtlpMeterRegistry
 └── config/                         # DynamoDB/Redis, Kafka, SFN/Temporal, SSM, SecurityConfig,
-                                     #   Resilience4j, Observability (Local/Prod)
+                                    #   Resilience4j, Observability (Local/Prod)
 
 src/main/resources/
 └── geo/test-locations.json         # 52 locais fictícios (carregados em memória na inicialização)
@@ -200,7 +200,8 @@ src/main/resources/
 ### Padrões
 - **Hexagonal:** domínio isolado de frameworks; ports + adapters; troca local ↔ AWS por profile.
 - **DDD:** Value Objects imutáveis com validação no compact constructor; sem modelo anêmico.
-- **Saga assíncrona:** orquestrador único + `SagaStarterPort`; saga no Step Functions Standard; compensação por `Catch`.
+- **Saga assíncrona:** orquestrador único + `SagaStarterPort`; saga no Step Functions Standard (AWS) ou Temporal (local-rich); compensação por `Catch`.
+- **Resiliência:** circuit breaker (Resilience4j) nos adapters de IA; ao abrir, a saga aplica as regras de degrade (`FraudFallbackService`).
 - **TDD:** suíte de testes de unidade + integração (LocalStack/Testcontainers).
 
 ---
@@ -305,7 +306,7 @@ terraform init
 terraform apply   # cria Lambdas (arm64+SnapStart), Function URLs, DynamoDB,
                   # Step Functions, SSM, e recursos New Relic (dashboard/alertas)
 ```
-Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `terraform.tfvars` (não versionar). Detalhes em [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
+Variáveis sensíveis (`jwt_secret`, `nr_license_key`, chaves New Relic) via `terraform.tfvars` (não versionar). Detalhes em [`DEPLOYMENT.md`](./docs/DEPLOYMENT.md). Pipeline automatizada (GitHub Actions + OIDC) em [`CICD.md`](./docs/CICD.md).
 
 ---
 
@@ -480,4 +481,67 @@ CORR=$(curl -s -X POST http://localhost:8080/process \
     "callbackUrl": null
   }' | jq -r '.correlationId')
 
-curl
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Resultado esperado: "status": "REJECTED" (geo impossível → score muito alto)
+```
+
+---
+
+### Cenário 5: Risco geo elevado (São Paulo → Londres)
+
+Continentes diferentes geram penalidade +20 pts; combinado com outros sinais pode rejeitar.
+
+```bash
+CORR=$(curl -s -X POST http://localhost:8080/process \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "txn-geo-international-001",
+    "uuidTransaction": "00000000-0000-0000-0000-000000000005",
+    "cardDataRequest": {
+      "number": "4111111111111111",
+      "cvv": "123",
+      "brand": "VISA",
+      "name": "JOAO DA SILVA"
+    },
+    "amount": 1500.00,
+    "installments": 6,
+    "locationCode": "LONDON",
+    "callbackUrl": null
+  }' | jq -r '.correlationId')
+
+curl -s "http://localhost:8080/status/$CORR" -H "Authorization: Bearer $TOKEN" | jq .
+# Geo: São Paulo → Londres (+20 pts) + valor alto + muitas parcelas
+```
+
+---
+
+### Credenciais de seed
+
+| Usuário | Senha | Cenário | Cartão |
+|---------|-------|---------|--------|
+| `usuario_teste` | `senha123` | Caminho feliz | `4111 1111 1111 1111` (VISA) |
+| `usuario_teste` | `senha123` | Crédito insuficiente | `5500 0055 5555 5559` (MASTER) |
+| `usuario_teste` | `senha123` | Bloqueada por fraude | `4000 0000 0000 0002` (VISA) |
+| `admin` | `admin123` | n/a | n/a |
+
+---
+
+## Troubleshooting
+
+```bash
+# LocalStack
+docker-compose ps && docker-compose logs localstack
+docker-compose restart localstack
+
+# Resetar ambiente (apaga volumes, re-executa seed)
+docker-compose down -v && docker-compose up -d
+
+# DynamoDB local
+aws dynamodb delete-table --table-name card-transactions --endpoint-url http://localhost:4566
+```
+
+---
+
+**Última atualização:** 2026-06-17 · **Versão:** 0.0.1-SNAPSHOT · **Status:** arquitetura assíncrona + observability (otel-lgtm/New Relic) + geolocalização AI-driven + resiliência (circuit breaker) + CI/CD (OIDC) implementados
+**Licença:** MIT
